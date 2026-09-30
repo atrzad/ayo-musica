@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ayo-musica"
+version = "0.2.0"
+description = "Player de música local com letras sincronizadas, feito em Python, GTK4 e GStreamer"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Ayo"}]
+dependencies = ["mutagen>=1.47"]
+classifiers = [
+  "Environment :: X11 Applications :: GTK",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Sound/Audio :: Players",
+]
+
+[project.scripts]
+ayo-musica = "ayo_musica.__main__:main"
+
+[tool.setuptools]
+packages = ["ayo_musica", "ayo_musica.identify", "ayo_musica.ui"]

@@ -1,0 +1,13 @@
+build/
+.flatpak-builder/
+__pycache__/
+*.pyc
+.venv/
+*.sqlite3
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.kotlin/
+*.keystore
+*.jks

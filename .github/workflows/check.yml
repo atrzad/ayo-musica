@@ -1,0 +1,24 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    # PyGObject, GTK4 e GStreamer do sistema: testar no Arch garante as mesmas versões do README.
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: >
+          pacman -Syu --noconfirm --needed
+          python python-gobject gtk4 libadwaita gstreamer gst-plugins-base gst-plugins-good
+          python-mutagen dbus appstream desktop-file-utils
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: make check
+      - name: Validate desktop entry and AppStream data
+        run: |
+          desktop-file-validate data/io.github.atrzad.AyoMusica.desktop
+          appstreamcli validate --no-net data/io.github.atrzad.AyoMusica.metainfo.xml

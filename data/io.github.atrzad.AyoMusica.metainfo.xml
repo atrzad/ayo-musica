@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.atrzad.AyoMusica</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Ayo Música</name>
+  <summary>Player de música local com letras sincronizadas</summary>
+  <developer id="io.github.atrzad">
+    <name>Ayo</name>
+  </developer>
+  <description>
+    <p>Player para a sua pasta de músicas, em preto e branco, que segue o tema claro ou escuro do sistema.
+      Lê tags e capas, organiza álbuns, artistas, gêneros e pastas, e acompanha as mudanças na pasta sozinho.</p>
+    <ul>
+      <li>Fila com arrastar, aleatório sem repetição, playlists e M3U</li>
+      <li>Nivelamento de volume, equalizador de 10 bandas, crossfade e reprodução sem intervalos</li>
+      <li>Tela cheia com visualizador ao fundo e letra sincronizada (arquivos .lrc, tags ou LRCLIB)</li>
+      <li>Identifica músicas e completa artista, álbum, ano e capa oficial, com Desfazer</li>
+      <li>Teclas de mídia (MPRIS), timer de sono e velocidade de 0,5× a 2×</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.atrzad.AyoMusica.desktop</launchable>
+  <url type="homepage">https://github.com/atrzad/ayo-musica</url>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <branding>
+    <color type="primary" scheme_preference="light">#f0f0f2</color>
+    <color type="primary" scheme_preference="dark">#18181c</color>
+  </branding>
+  <releases>
+    <release version="0.2.0" date="2026-09-30">
+      <description>
+        <p>Primeira versão como aplicativo próprio, com pacote Flatpak. Importa a biblioteca do Ayo Desk.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Ayo Música
+GenericName=Player de música
+Comment=Player de música com letras sincronizadas
+Exec=ayo-musica %F
+Icon=io.github.atrzad.AyoMusica
+Terminal=false
+Categories=AudioVideo;Audio;Player;GTK;
+Keywords=music;player;lyrics;letra;música;mp3;flac;
+StartupNotify=true
+DBusActivatable=false
+MimeType=audio/mpeg;audio/mp3;audio/flac;audio/x-flac;audio/ogg;audio/x-vorbis+ogg;audio/opus;audio/x-opus+ogg;audio/wav;audio/x-wav;audio/mp4;audio/x-m4a;audio/aac;audio/x-aiff;audio/x-ms-wma;audio/x-ape;audio/x-matroska;audio/x-mpegurl;audio/mpegurl;
