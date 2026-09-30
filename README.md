@@ -2,6 +2,8 @@
 
 Player de música local para Linux, feito em Python, GTK4/libadwaita e GStreamer, em preto e branco seguindo o tema claro ou escuro do sistema. Biblioteca por tags e capas, fila, playlists, som caprichado (nivelamento, equalizador, crossfade, sem intervalos), tela cheia com visualizador e letra sincronizada, identificação de músicas com capa oficial e teclas de mídia (MPRIS).
 
+Também tem versão para **Android**, nativa (Kotlin + Media3), com o mesmo visual.
+
 Veio do [Ayo Desk](https://github.com/atrzad/ayo-desk), onde nasceu como uma das ferramentas da suíte; o histórico até a versão 0.2.0 está lá.
 
 ## Instalar
@@ -16,6 +18,8 @@ flatpak run io.github.atrzad.AyoMusica
 Na primeira vez, `make flatpak` baixa o SDK do GNOME 50 e o `org.flatpak.Builder` do Flathub (`flatpak install --user flathub org.flatpak.Builder org.gnome.Sdk//50`). O pacote pronto também sai no GitHub Actions (artefato **ayo-musica-flatpak**, e anexado às releases `v*`); para instalar: `flatpak install --user ayo-musica.flatpak`.
 
 O Flatpak pode: tocar som, ler e gravar tags na pasta **Músicas** (`xdg-music`; outras pastas passam pelo seletor de arquivos), acessar a internet (letras, identificação e capas), publicar o MPRIS e usar o `cava`, o `songrec`, o `whisper-cpp` e o `pactl` **instalados no sistema** (via `flatpak-spawn --host`). Também lê, só para importar, a biblioteca de uma instalação anterior.
+
+**Android** (8.0 ou mais novo): baixe o `ayo-musica-<versão>-android.apk` do GitHub Actions (artefato **ayo-musica-android**) ou de uma release `v*` e instale no celular (permita "instalar apps desta fonte"). As versões seguintes instalam por cima, mantendo playlists e fila. Para compilar: veja `android/README.md`.
 
 **Direto do código** (Arch):
 
@@ -74,5 +78,5 @@ make smoke        # abre a janela de verdade com uma pasta de teste
 ```
 
 - `ayo_musica/`: biblioteca, tags, capas, fila, motor de áudio (GStreamer), MPRIS, letras, identificação (`identify/`) e a interface (`ui/`).
-- `packaging/flatpak/`: manifesto do Flatpak. `android/`: o app Android (em construção).
+- `packaging/flatpak/`: manifesto do Flatpak. `android/`: o app Android (Kotlin, Jetpack Compose e Media3).
 - `AYO_SELFTEST=<arquivo>` abre o app, confere os elementos de áudio e fecha, escrevendo `OK` ou o que falhou; `AYO_DATA_DIR`/`AYO_CACHE_DIR` apontam os dados para outra pasta (inclusive no Flatpak).

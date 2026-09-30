@@ -1,0 +1,57 @@
+name: android
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Android SDK packages
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
+      - name: Signing key
+        env:
+          KEYSTORE: ${{ secrets.AYO_KEYSTORE_BASE64 }}
+        if: env.KEYSTORE != ''
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "AYO_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Test and build
+        env:
+          AYO_KEYSTORE_PASSWORD: ${{ secrets.AYO_KEYSTORE_PASSWORD }}
+          AYO_VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
+      - name: Name the APK
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
+          mkdir -p ../dist
+          cp app/build/outputs/apk/release/app-release.apk "../dist/ayo-musica-$version-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ayo-musica-android
+          path: dist/*.apk
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "Ayo Música $GITHUB_REF_NAME" --notes "Veja o CHANGELOG.md." || true  # the other workflow may have created it
+          gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber

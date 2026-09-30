@@ -30,5 +30,5 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
-            || gh release create "$GITHUB_REF_NAME" --title "Ayo Música $GITHUB_REF_NAME" --notes "Veja o CHANGELOG.md."
+            || gh release create "$GITHUB_REF_NAME" --title "Ayo Música $GITHUB_REF_NAME" --notes "Veja o CHANGELOG.md." || true  # the other workflow may have created it
           gh release upload "$GITHUB_REF_NAME" ayo-musica.flatpak --clobber

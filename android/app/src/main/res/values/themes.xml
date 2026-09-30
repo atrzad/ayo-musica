@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.AyoMusica" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="window">#F7F7F8</color>
+    <color name="icon_background">#26262B</color>
+</resources>

@@ -1,0 +1,73 @@
+package io.github.atrzad.ayomusica.data
+
+import android.content.ContentUris
+import android.net.Uri
+import android.provider.MediaStore
+import kotlinx.serialization.Serializable
+import java.text.Normalizer
+
+const val UNKNOWN_ARTIST = "Artista desconhecido"
+const val UNKNOWN_ALBUM = "Álbum desconhecido"
+
+/** One audio file from the phone's media library (MediaStore). */
+@Serializable
+data class Song(
+    val id: Long,
+    val title: String,
+    val artist: String,
+    val album: String,
+    val albumId: Long,
+    val albumArtist: String = "",
+    val durationMs: Long,
+    val track: Int = 0,
+    val disc: Int = 0,
+    val year: Int = 0,
+    val dateAdded: Long = 0,
+    val relativePath: String = "",
+    val displayName: String = "",
+) {
+    val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+    val shownArtist: String get() = artist.ifBlank { UNKNOWN_ARTIST }
+    val shownAlbum: String get() = album.ifBlank { UNKNOWN_ALBUM }
+    val albumKey: String get() = "${fold(albumArtist.ifBlank { artist })}|${fold(album)}"
+    val searchText: String by lazy { fold("$title $artist $album $albumArtist $displayName") }
+}
+
+data class Album(val key: String, val title: String, val artist: String, val year: Int, val songs: List<Song>) {
+    val cover: Song get() = songs.first()
+}
+
+data class Artist(val name: String, val songs: List<Song>, val albumCount: Int)
+
+/** "São Paulo" → "sao paulo": search without accents or case. */
+fun fold(text: String): String =
+    Normalizer.normalize(text, Normalizer.Form.NFKD).replace(Regex("\\p{M}+"), "").lowercase().trim()
+
+/** Albums and artists from the song list; tracks in disc/track order. */
+object Grouping {
+    fun albums(songs: List<Song>): List<Album> = songs.groupBy { it.albumKey }.map { (key, tracks) ->
+        val ordered = tracks.sortedWith(compareBy({ it.disc }, { it.track }, { fold(it.title) }))
+        val artist = ordered.firstNotNullOfOrNull { it.albumArtist.ifBlank { null } }
+            ?: ordered.map { it.shownArtist }.distinct().let { if (it.size == 1) it[0] else "Vários artistas" }
+        Album(key, ordered.first().shownAlbum, artist, ordered.maxOf { it.year }, ordered)
+    }.sortedBy { fold(it.title) }
+
+    fun artists(songs: List<Song>): List<Artist> = songs.groupBy { it.shownArtist }.map { (name, tracks) ->
+        Artist(name, tracks.sortedWith(compareBy({ fold(it.album) }, { it.disc }, { it.track })),
+            tracks.map { it.albumKey }.distinct().size)
+    }.sortedBy { fold(it.name) }
+
+    fun search(songs: List<Song>, query: String): List<Song> {
+        val words = fold(query).split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.isEmpty()) return songs
+        return songs.filter { song -> words.all { song.searchText.contains(it) } }
+    }
+}
+
+fun durationText(ms: Long): String {
+    val total = (ms / 1000).coerceAtLeast(0)
+    val hours = total / 3600
+    val minutes = total / 60 % 60
+    val seconds = total % 60
+    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
+}

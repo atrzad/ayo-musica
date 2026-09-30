@@ -7,6 +7,10 @@
   as capas do Ayo Desk, sem alterar nada lá.
 - Pacote Flatpak (GNOME 50): usa o `cava`, o `songrec`, o `whisper-cpp` e o `pactl` do sistema quando existem.
 - Ícone próprio, atalho de menu e dados AppStream.
+- **Android** (novo, nativo em Kotlin + Jetpack Compose + Media3): biblioteca do celular (músicas, álbuns,
+  artistas, busca sem acento), playlists, fila, tocar a seguir, aleatório e repetir; toca em segundo plano com
+  controles na notificação, na tela de bloqueio e no fone; retoma a fila onde parou; tela cheia com capa e letra
+  sincronizada (tags ID3 do MP3 ou LRCLIB) com ajuste de atraso por música; tema preto e branco claro/escuro.
 
 ## Herdado do Ayo Desk (até 0.2.0)
 

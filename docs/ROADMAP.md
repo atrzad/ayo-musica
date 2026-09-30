@@ -2,9 +2,9 @@
 
 ## Agora
 - **Flatpak** — pronto (0.2.0).
-- **Android** — app nativo em Kotlin + Media3 na pasta `android/`: biblioteca do celular, fila, controles na tela
-  de bloqueio e na notificação, playlists, tela cheia com letra sincronizada (`.lrc` e LRCLIB). APK gerado no
-  GitHub Actions.
+- **Android** — primeira versão pronta (0.2.0). Próximos passos no celular: visualizador, equalizador, letras em
+  `.lrc` ao lado da música (pede acesso a uma pasta), capas oficiais e identificação como no PC, e o servidor próprio
+  com download para ouvir offline.
 
 ## Depois
 - Editor manual de tags (uma ou várias músicas, com capa), com o mesmo backup e Desfazer da identificação.
