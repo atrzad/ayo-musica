@@ -2,6 +2,7 @@ package io.github.atrzad.ayomusica.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.SystemClock
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -13,6 +14,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import io.github.atrzad.ayomusica.data.Stats
 import io.github.atrzad.ayomusica.ui.MainActivity
 
 /** Plays in the background, with notification, lock-screen, headset and Bluetooth controls. */
@@ -20,10 +22,13 @@ import io.github.atrzad.ayomusica.ui.MainActivity
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private lateinit var store: QueueStore
+    private lateinit var stats: Stats
+    private val listening = Listening()
 
     override fun onCreate() {
         super.onCreate()
         store = QueueStore(this)
+        stats = Stats.get(this)
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
@@ -33,11 +38,30 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         restore(player)
+        PlayerHub.attach(player)
+        AudioEffects.attach(this, player.audioSessionId)
+        listening.start(player.currentMediaItem, player)
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_TIMELINE_CHANGED,
                         Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
                         Player.EVENT_REPEAT_MODE_CHANGED)) save(player)
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) = listening.playing(isPlaying)
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                listening.finish(reason)
+                listening.start(mediaItem, player)
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) SleepTimer.songEnded()
+            }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                PlayerHub.sessionChanged(audioSessionId)
+                AudioEffects.attach(this@PlaybackService, audioSessionId)
             }
         })
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java)
@@ -61,12 +85,47 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         session?.run {
+            listening.finish(Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
             save(player)
+            SleepTimer.cancel()
+            AudioEffects.release()
+            PlayerHub.detach()
             player.release()
             release()
         }
         session = null
         super.onDestroy()
+    }
+
+    /** Counts a play after half the song (or 4 min) of real listening; skipping earlier counts a skip. */
+    private inner class Listening {
+        private var id: Long? = null
+        private var durationMs = 0L
+        private var listenedMs = 0L
+        private var since = 0L
+
+        fun start(item: MediaItem?, player: Player) {
+            id = item?.mediaId?.toLongOrNull()
+            durationMs = item?.mediaMetadata?.durationMs ?: 0
+            listenedMs = 0
+            since = if (player.isPlaying) SystemClock.elapsedRealtime() else 0
+        }
+
+        fun playing(isPlaying: Boolean) {
+            val now = SystemClock.elapsedRealtime()
+            if (since > 0) listenedMs += now - since
+            since = if (isPlaying) now else 0
+        }
+
+        fun finish(reason: Int) {
+            playing(false)
+            val song = id ?: return
+            when {
+                durationMs > 0 && Stats.counts(listenedMs, durationMs) -> stats.played(song)
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && listenedMs > 1000 -> stats.skipped(song)
+            }
+            id = null
+        }
     }
 
     private fun restore(player: Player) {

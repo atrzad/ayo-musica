@@ -62,6 +62,8 @@ import kotlinx.coroutines.withContext
 fun Cover(uri: Uri?, modifier: Modifier = Modifier, sizePx: Int = 256, corner: Dp = 8.dp) {
     val context = LocalContext.current
     val bitmap by produceState(uri?.let { Artwork.cached(it, sizePx) }, uri, sizePx) {
+        // A new song: drop the previous cover right away, then load this one.
+        value = uri?.let { Artwork.cached(it, sizePx) }
         if (uri != null && value == null) value = withContext(Dispatchers.IO) { Artwork.load(context, uri, sizePx) }
     }
     Box(
@@ -91,6 +93,8 @@ class SongActions(
     val goToAlbum: ((Song) -> Unit)?,
     val goToArtist: ((Song) -> Unit)?,
     val remove: ((Int) -> Unit)? = null,
+    val isFavorite: (Song) -> Boolean = { false },
+    val toggleFavorite: ((Song) -> Unit)? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -132,6 +136,10 @@ fun SongRow(
                 DropdownMenuItem(text = { Text("Adicionar à fila") }, onClick = { menu = false; actions.enqueue(song) })
                 DropdownMenuItem(text = { Text("Adicionar à playlist…") },
                     onClick = { menu = false; actions.addToPlaylist(song) })
+                actions.toggleFavorite?.let { toggle ->
+                    DropdownMenuItem(text = { Text(if (actions.isFavorite(song)) "Tirar das favoritas" else "Favoritar") },
+                        onClick = { menu = false; toggle(song) })
+                }
                 actions.goToAlbum?.let { go ->
                     DropdownMenuItem(text = { Text("Ir para o álbum") }, onClick = { menu = false; go(song) })
                 }

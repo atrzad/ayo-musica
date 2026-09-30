@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — Android
+
+- **Som**: equalizador com os presets do celular e ajuste por banda, graves, velocidade de 0,5× a 2× (a voz
+  mantém o tom) e timer de sono (15 min a 1h30, com o volume baixando aos poucos, ou no fim da música).
+- **Visualizador** ao fundo da tela cheia, como o CAVA do PC. Pede a permissão de gravar áudio só quando ligado,
+  com explicação: o microfone não é usado.
+- **Favoritas** (coração na tela cheia ou menu ⋮) e **listas automáticas**: Favoritas, Mais tocadas, Tocadas
+  recentemente e Adicionadas recentemente. Uma música conta como tocada depois de metade (ou 4 minutos).
+- Letras embutidas também em **FLAC** e **M4A**, além do MP3.
+- Corrigido: a capa do mini player podia continuar a da música anterior; letras com caracteres de controle
+  escondidos.
+
 ## 0.2.0 — aplicativo próprio
 
 - O Ayo Música saiu da suíte Ayo Desk e virou um app próprio (`io.github.atrzad.AyoMusica`), com banco

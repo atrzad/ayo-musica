@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +25,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
@@ -73,6 +78,7 @@ import io.github.atrzad.ayomusica.data.durationText
 import io.github.atrzad.ayomusica.lyrics.Lyrics
 import io.github.atrzad.ayomusica.playback.PlayerConnection
 import io.github.atrzad.ayomusica.playback.PlayerUi
+import io.github.atrzad.ayomusica.playback.SleepTimer
 import kotlinx.coroutines.delay
 
 /** The playback position, refreshed while shown. */
@@ -126,6 +132,13 @@ fun ExpandedPlayer(
     ui: PlayerUi,
     player: PlayerConnection,
     lyrics: LyricsUi,
+    favorite: Boolean,
+    onFavorite: () -> Unit,
+    visualizer: Boolean,
+    onVisualizer: () -> Unit,
+    sessionId: Int,
+    sleep: SleepTimer.Mode,
+    onSleep: (Int?) -> Unit,
     onCollapse: () -> Unit,
     onArtist: () -> Unit,
     onShiftLyrics: (Long) -> Unit,
@@ -134,13 +147,28 @@ fun ExpandedPlayer(
     val item = ui.current
     var showLyrics by rememberSaveable { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
+    var showSound by remember { mutableStateOf(false) }
     val position = rememberPosition(player, ui, 100)
+    val dimIcon = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+      Box(Modifier.fillMaxSize()) {
+        if (visualizer && ui.isPlaying) {
+            SpectrumBackground(sessionId, Modifier.fillMaxWidth().fillMaxHeight(0.6f).align(Alignment.BottomCenter))
+        }
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onCollapse) { Icon(Icons.Rounded.KeyboardArrowDown, "Recolher") }
                 Text("Tocando agora", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                IconButton(onClick = onVisualizer) {
+                    Icon(Icons.Rounded.GraphicEq, "Visualizador",
+                        tint = if (visualizer) MaterialTheme.colorScheme.onSurface else dimIcon)
+                }
+                IconButton(onClick = { showSound = true }) {
+                    Icon(Icons.Rounded.Tune, "Som: equalizador, velocidade e timer",
+                        tint = if (sleep != SleepTimer.Mode.Off || ui.speed != 1f) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 IconButton(onClick = { showQueue = true }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, "Fila") }
             }
             Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
@@ -155,11 +183,19 @@ fun ExpandedPlayer(
                     }
                 }
             }
-            Text(item?.title().orEmpty(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(item?.artist().orEmpty(), Modifier.clickable(onClick = onArtist).padding(vertical = 2.dp),
-                style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(item?.title().orEmpty(), style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(item?.artist().orEmpty(), Modifier.clickable(onClick = onArtist).padding(vertical = 2.dp),
+                        style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                IconButton(onClick = onFavorite) {
+                    Icon(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        if (favorite) "Tirar das favoritas" else "Favoritar")
+                }
+            }
             SeekBar(position, ui.durationMs, player::seekTo)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
@@ -197,8 +233,10 @@ fun ExpandedPlayer(
                 }
             }
         }
+      }
     }
     if (showQueue) QueueSheet(ui, player) { showQueue = false }
+    if (showSound) SoundSheet(ui.speed, player::setSpeed, sleep, onSleep) { showSound = false }
 }
 
 private fun offsetText(ms: Long): String = when {

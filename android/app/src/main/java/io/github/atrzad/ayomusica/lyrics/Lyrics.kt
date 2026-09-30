@@ -29,7 +29,8 @@ data class Lyrics(
         private val WORD_STAMP = Regex("""<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>""")
         private val OFFSET = Regex("""^\[offset:\s*([+-]?\d+)\s*]""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
         private val META = Regex("""^\[[a-z#]+:.*]\s*$""", RegexOption.IGNORE_CASE)
-        private val INVISIBLE = Regex("[​-‏‪-‮⁠-⁤﻿]")
+        // Zero-width marks and control characters (some taggers leave NULs inside the text).
+        private val INVISIBLE = Regex("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u2064\\uFEFF]")
 
         fun parse(raw: String?, source: String = ""): Lyrics {
             val text = INVISIBLE.replace((raw ?: "").replace("\r\n", "\n").replace('\r', '\n'), "")

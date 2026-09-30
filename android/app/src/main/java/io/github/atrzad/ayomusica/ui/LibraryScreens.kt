@@ -20,6 +20,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
@@ -37,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.atrzad.ayomusica.data.Album
 import io.github.atrzad.ayomusica.data.Artist
+import io.github.atrzad.ayomusica.data.AutoList
 import io.github.atrzad.ayomusica.data.Playlist
 import io.github.atrzad.ayomusica.data.Song
 
@@ -123,8 +128,30 @@ fun ArtistsScreen(artists: List<Artist>, onOpen: (Artist) -> Unit) {
 
 @Composable
 fun PlaylistsScreen(playlists: List<Playlist>, count: (Playlist) -> Int, onOpen: (Playlist) -> Unit,
-                    onCreate: () -> Unit) {
+                    onCreate: () -> Unit, autoCount: (AutoList) -> Int, onAuto: (AutoList) -> Unit) {
     LazyColumn(contentPadding = listPadding) {
+        items(AutoList.entries.toList(), key = { "auto-${it.name}" }) { list ->
+            Row(Modifier.fillMaxWidth().clickable { onAuto(list) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(when (list) {
+                    AutoList.Favorites -> Icons.Rounded.Favorite
+                    AutoList.MostPlayed -> Icons.Rounded.TrendingUp
+                    AutoList.Recent -> Icons.Rounded.History
+                    AutoList.Added -> Icons.Rounded.NewReleases
+                }, null)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(list.title, style = MaterialTheme.typography.bodyLarge)
+                    val songs = autoCount(list)
+                    Text(if (songs == 1) "1 música" else "$songs músicas", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item {
+            Text("Suas playlists", Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+                style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         item {
             Row(Modifier.fillMaxWidth().clickable(onClick = onCreate).padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -210,6 +237,27 @@ fun PlaylistScreen(playlist: Playlist, songs: List<Song>, currentId: String?, ac
         itemsIndexed(songs, key = { index, song -> "$index-${song.id}" }) { index, song ->
             SongRow(song, song.id.toString() == currentId, actions, onClick = { onPlay(songs, index, false) },
                 position = index)
+        }
+    }
+}
+
+@Composable
+fun AutoListScreen(list: AutoList, songs: List<Song>, currentId: String?, actions: SongActions,
+                   onPlay: (List<Song>, Int, Boolean) -> Unit) {
+    LazyColumn(contentPadding = listPadding) {
+        item {
+            Header(songs.firstOrNull(), list.title, "", if (songs.size == 1) "1 música" else "${songs.size} músicas")
+            PlayButtons(songs, onPlay)
+            if (songs.isEmpty()) {
+                Text(when (list) {
+                    AutoList.Favorites -> "Toque no coração da tela cheia ou use Favoritar no menu ⋮ de uma música."
+                    AutoList.MostPlayed, AutoList.Recent -> "Uma música conta depois de tocar metade (ou 4 minutos)."
+                    AutoList.Added -> "Nenhuma música no celular."
+                }, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+            SongRow(song, song.id.toString() == currentId, actions, onClick = { onPlay(songs, index, false) })
         }
     }
 }

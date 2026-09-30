@@ -2,9 +2,9 @@
 
 ## Agora
 - **Flatpak** — pronto (0.2.0).
-- **Android** — primeira versão pronta (0.2.0). Próximos passos no celular: visualizador, equalizador, letras em
-  `.lrc` ao lado da música (pede acesso a uma pasta), capas oficiais e identificação como no PC, e o servidor próprio
-  com download para ouvir offline.
+- **Android** — 0.3.0 com equalizador, visualizador, timer, velocidade, favoritas e listas automáticas. Próximos
+  passos no celular: letras em `.lrc` ao lado da música (pede acesso a uma pasta), capas oficiais e identificação
+  como no PC, widget na tela inicial, e o servidor próprio com download para ouvir offline.
 
 ## Depois
 - Editor manual de tags (uma ou várias músicas, com capa), com o mesmo backup e Desfazer da identificação.

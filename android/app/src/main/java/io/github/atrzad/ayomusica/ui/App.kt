@@ -55,6 +55,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.atrzad.ayomusica.data.Song
+import io.github.atrzad.ayomusica.playback.PlayerHub
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
 
 private val audioPermission =
@@ -97,6 +100,23 @@ private fun Main(viewModel: MusicViewModel) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val sleep by viewModel.sleep.collectAsStateWithLifecycle()
+    val visualizer by viewModel.visualizer.collectAsStateWithLifecycle()
+    val sessionId by PlayerHub.audioSessionId.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var explainVisualizer by remember { mutableStateOf(false) }
+    val askMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        viewModel.setVisualizer(ok)
+    }
+    fun toggleVisualizer() {
+        when {
+            visualizer -> viewModel.setVisualizer(false)
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED -> viewModel.setVisualizer(true)
+            else -> explainVisualizer = true
+        }
+    }
     var expanded by rememberSaveable { mutableStateOf(false) }
     var searching by rememberSaveable { mutableStateOf(false) }
     var addingToPlaylist by remember { mutableStateOf<List<Song>?>(null) }
@@ -114,6 +134,11 @@ private fun Main(viewModel: MusicViewModel) {
         goToAlbum = { song -> viewModel.open(Route.AlbumPage(song.albumKey)) },
         goToArtist = { song -> viewModel.open(Route.ArtistPage(song.shownArtist)) },
         remove = (route as? Route.PlaylistPage)?.let { page -> { position: Int -> viewModel.removeFromPlaylist(page.id, position) } },
+        isFavorite = { stats[it.id]?.favorite == true },
+        toggleFavorite = { song ->
+            viewModel.toggleFavorite(song)
+            tell(if (stats[song.id]?.favorite == true) "Tirada das favoritas" else "Adicionada às favoritas")
+        },
     )
     val play: (List<Song>, Int, Boolean) -> Unit = { list, start, shuffle -> viewModel.play(list, start, shuffle) }
 
@@ -145,6 +170,7 @@ private fun Main(viewModel: MusicViewModel) {
                                 is Route.AlbumPage -> "Álbum"
                                 is Route.ArtistPage -> "Artista"
                                 is Route.PlaylistPage -> "Playlist"
+                                is Route.AutoPage -> route.list.title
                             })
                         }
                     },
@@ -208,7 +234,9 @@ private fun Main(viewModel: MusicViewModel) {
                         Tab.Artists -> ArtistsScreen(artists) { viewModel.open(Route.ArtistPage(it.name)) }
                         Tab.Playlists -> PlaylistsScreen(playlists, { viewModel.playlistSongs(it).size },
                             onOpen = { viewModel.open(Route.PlaylistPage(it.id)) },
-                            onCreate = { naming = "Nova playlist" to { name: String -> viewModel.createPlaylist(name) } })
+                            onCreate = { naming = "Nova playlist" to { name: String -> viewModel.createPlaylist(name) } },
+                            autoCount = { list -> list.songs(results, stats).size },
+                            onAuto = { viewModel.open(Route.AutoPage(it)) })
                     }
                     is Route.AlbumPage -> albums.firstOrNull { it.key == route.key }
                         ?.let { AlbumScreen(it, currentId, actions, play) }
@@ -216,13 +244,23 @@ private fun Main(viewModel: MusicViewModel) {
                         ?.let { ArtistScreen(it, currentId, actions, play) }
                     is Route.PlaylistPage -> playlists.firstOrNull { it.id == route.id }
                         ?.let { PlaylistScreen(it, viewModel.playlistSongs(it), currentId, actions, play) }
+                    is Route.AutoPage -> AutoListScreen(route.list, route.list.songs(viewModel.songs.value, stats),
+                        currentId, actions, play)
                 }
             }
         }
         AnimatedVisibility(expanded && ui.current != null, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
             BackHandler { expanded = false }
+            val current = viewModel.songOf(ui.current)
             ExpandedPlayer(
                 ui, viewModel.player, lyrics,
+                favorite = current != null && stats[current.id]?.favorite == true,
+                onFavorite = { current?.let(viewModel::toggleFavorite) },
+                visualizer = visualizer,
+                onVisualizer = ::toggleVisualizer,
+                sessionId = sessionId,
+                sleep = sleep,
+                onSleep = viewModel::sleepAfter,
                 onCollapse = { expanded = false },
                 onArtist = {
                     viewModel.songOf(ui.current)?.let { viewModel.open(Route.ArtistPage(it.shownArtist)) }
@@ -248,6 +286,22 @@ private fun Main(viewModel: MusicViewModel) {
                 tell("Playlist “$name” criada")
             },
             onDismiss = { addingToPlaylist = null },
+        )
+    }
+    if (explainVisualizer) {
+        AlertDialog(
+            onDismissRequest = { explainVisualizer = false },
+            title = { Text("Visualizador") },
+            text = {
+                Text("Para desenhar as barras, o Android pede a permissão de gravar áudio: é assim que um app lê " +
+                    "o som que ele mesmo está tocando. O microfone não é usado e nada é gravado ou enviado.")
+            },
+            confirmButton = {
+                TextButton(onClick = { explainVisualizer = false; askMicrophone.launch(Manifest.permission.RECORD_AUDIO) }) {
+                    Text("Continuar")
+                }
+            },
+            dismissButton = { TextButton(onClick = { explainVisualizer = false }) { Text("Agora não") } },
         )
     }
     naming?.let { (title, done) ->

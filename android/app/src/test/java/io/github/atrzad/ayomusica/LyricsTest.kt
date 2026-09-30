@@ -24,6 +24,11 @@ class LyricsTest {
     }
 
     @Test
+    fun controlCharactersAreRemoved() {
+        assertEquals(listOf("linha um", "linha dois"), Lyrics.parse("linha\u0000 um\nlinha dois\u0000").lines.map { it.text })
+    }
+
+    @Test
     fun plainTextStaysPlain() {
         val lyrics = Lyrics.parse("\nTodos esses que aí estão\nEles passarão, eu passarinho\n\n")
         assertFalse(lyrics.synced)
@@ -90,5 +95,45 @@ class LyricsTest {
         val syncsafe = byteArrayOf((size shr 21 and 0x7F).toByte(), (size shr 14 and 0x7F).toByte(),
             (size shr 7 and 0x7F).toByte(), (size and 0x7F).toByte())
         return "ID3".toByteArray() + byteArrayOf(3, 0, 0) + syncsafe + frames
+    }
+}
+
+class EmbeddedLyricsTest {
+    private fun le(value: Int) = byteArrayOf(value.toByte(), (value shr 8).toByte(), (value shr 16).toByte(), (value shr 24).toByte())
+    private fun be(value: Int) = byteArrayOf((value shr 24).toByte(), (value shr 16).toByte(), (value shr 8).toByte(), value.toByte())
+
+    private fun comments(vararg entries: String): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        out.write(le(4)); out.write("ayo!".toByteArray()); out.write(le(entries.size))
+        entries.forEach { val bytes = it.toByteArray(); out.write(le(bytes.size)); out.write(bytes) }
+        return out.toByteArray()
+    }
+
+    @org.junit.Test
+    fun flacPrefersSyncedLyrics() {
+        val block = comments("TITLE=Faixa", "LYRICS=só texto", "SYNCEDLYRICS=[00:01.00]com tempo")
+        val streamInfo = byteArrayOf(0, 0, 0, 34) + ByteArray(34)
+        val header = byteArrayOf((0x80 or 4).toByte(), (block.size shr 16).toByte(), (block.size shr 8).toByte(), block.size.toByte())
+        val file = "fLaC".toByteArray() + streamInfo + header + block
+        val lyrics = io.github.atrzad.ayomusica.lyrics.EmbeddedLyrics.read(file.inputStream())
+        org.junit.Assert.assertEquals(listOf(Lyrics.Line(1000, "com tempo")), lyrics!!.lines)
+    }
+
+    @org.junit.Test
+    fun mp4LyricsAtom() {
+        fun atom(type: String, body: ByteArray) = be(8 + body.size) + type.toByteArray(Charsets.ISO_8859_1) + body
+        val data = atom("data", be(1) + be(0) + "primeira linha\nsegunda linha".toByteArray())
+        val ilst = atom("ilst", atom("©lyr", data))
+        val meta = atom("meta", be(0) + atom("hdlr", ByteArray(25)) + ilst)
+        val file = atom("ftyp", "M4A ".toByteArray() + ByteArray(8)) + atom("mdat", ByteArray(100)) +
+            atom("moov", atom("mvhd", ByteArray(100)) + atom("udta", meta))
+        val lyrics = io.github.atrzad.ayomusica.lyrics.EmbeddedLyrics.read(file.inputStream())
+        org.junit.Assert.assertEquals(listOf("primeira linha", "segunda linha"), lyrics!!.lines.map { it.text })
+        org.junit.Assert.assertFalse(lyrics.synced)
+    }
+
+    @org.junit.Test
+    fun unknownFormats() {
+        org.junit.Assert.assertNull(io.github.atrzad.ayomusica.lyrics.EmbeddedLyrics.read("OggS......".toByteArray().inputStream()))
     }
 }

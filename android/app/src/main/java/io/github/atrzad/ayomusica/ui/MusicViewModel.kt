@@ -8,15 +8,19 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import io.github.atrzad.ayomusica.data.Album
 import io.github.atrzad.ayomusica.data.Artist
+import io.github.atrzad.ayomusica.data.AutoList
 import io.github.atrzad.ayomusica.data.Grouping
 import io.github.atrzad.ayomusica.data.MediaLibrary
 import io.github.atrzad.ayomusica.data.Playlist
 import io.github.atrzad.ayomusica.data.Playlists
 import io.github.atrzad.ayomusica.data.Song
-import io.github.atrzad.ayomusica.lyrics.Id3Lyrics
+import io.github.atrzad.ayomusica.data.SongStats
+import io.github.atrzad.ayomusica.data.Stats
+import io.github.atrzad.ayomusica.lyrics.EmbeddedLyrics
 import io.github.atrzad.ayomusica.lyrics.Lyrics
 import io.github.atrzad.ayomusica.lyrics.LyricsRepository
 import io.github.atrzad.ayomusica.playback.PlayerConnection
+import io.github.atrzad.ayomusica.playback.SleepTimer
 import io.github.atrzad.ayomusica.playback.externalMediaItem
 import io.github.atrzad.ayomusica.playback.toMediaItem
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +50,7 @@ sealed interface Route {
     data class AlbumPage(val key: String) : Route
     data class ArtistPage(val name: String) : Route
     data class PlaylistPage(val id: Long) : Route
+    data class AutoPage(val list: AutoList) : Route
 }
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
@@ -61,6 +66,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val routes = MutableStateFlow<List<Route>>(listOf(Route.Home(Tab.Songs)))
     val lyrics = MutableStateFlow<LyricsUi>(LyricsUi.Idle)
     val playlists: StateFlow<List<Playlist>> = playlistStore.all
+    private val statsStore = Stats.get(application)
+    val stats: StateFlow<Map<Long, SongStats>> = statsStore.all
+    val sleep: StateFlow<SleepTimer.Mode> = SleepTimer.mode
+    private val prefs = application.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE)
+    val visualizer = MutableStateFlow(prefs.getBoolean("visualizer", false))
+
+    fun setVisualizer(on: Boolean) {
+        visualizer.value = on
+        prefs.edit().putBoolean("visualizer", on).apply()
+    }
 
     val albums: StateFlow<List<Album>> = songs.map(Grouping::albums).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val artists: StateFlow<List<Artist>> = songs.map(Grouping::artists).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -146,7 +161,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             if (force) lyricsRepository.forget(song)
             val embedded = withContext(Dispatchers.IO) {
                 runCatching {
-                    getApplication<Application>().contentResolver.openInputStream(song.uri)?.use(Id3Lyrics::read)
+                    getApplication<Application>().contentResolver.openInputStream(song.uri)?.use(EmbeddedLyrics::read)
                 }.getOrNull()
             }
             lyrics.value = when (val result = lyricsRepository.find(song, embedded, online = true)) {
@@ -164,6 +179,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val updated = shown.lyrics.copy(offsetMs = shown.lyrics.offsetMs + deltaMs)
         lyrics.value = LyricsUi.Shown(updated)
         viewModelScope.launch { lyricsRepository.setOffset(song, updated.offsetMs) }
+    }
+
+    // ── favorites, automatic lists, speed and sleep ──────────────────────
+    fun isFavorite(song: Song) = stats.value[song.id]?.favorite == true
+
+    fun toggleFavorite(song: Song) = statsStore.setFavorite(song.id, !isFavorite(song))
+
+    fun autoList(list: AutoList): List<Song> = list.songs(songs.value, stats.value)
+
+    fun setSpeed(speed: Float) = player.setSpeed(speed)
+
+    fun sleepAfter(minutes: Int?) = when (minutes) {
+        null -> SleepTimer.cancel()
+        0 -> SleepTimer.endOfSong()
+        else -> SleepTimer.start(minutes)
     }
 
     // ── playlists ────────────────────────────────────────────────────────

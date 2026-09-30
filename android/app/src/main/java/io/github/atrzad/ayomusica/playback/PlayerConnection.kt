@@ -22,6 +22,7 @@ data class PlayerUi(
     val shuffle: Boolean = false,
     val repeat: Int = Player.REPEAT_MODE_OFF,
     val durationMs: Long = 0,
+    val speed: Float = 1f,
 )
 
 /** The screens' handle on the playback service. */
@@ -68,6 +69,7 @@ class PlayerConnection(private val context: Context) {
             shuffle = player.shuffleModeEnabled,
             repeat = player.repeatMode,
             durationMs = player.duration.takeIf { it != C.TIME_UNSET } ?: 0,
+            speed = player.playbackParameters.speed,
         )
     }
 
@@ -99,6 +101,9 @@ class PlayerConnection(private val context: Context) {
     fun seekTo(ms: Long) = controller?.seekTo(ms.coerceAtLeast(0))
 
     fun setShuffle(on: Boolean) { controller?.shuffleModeEnabled = on }
+
+    /** 0.5× to 2×; the pitch stays the same. */
+    fun setSpeed(speed: Float) { controller?.setPlaybackSpeed(speed.coerceIn(0.5f, 2f)) }
 
     fun cycleRepeat() {
         val player = controller ?: return
