@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: >
           pacman -Syu --noconfirm --needed
-          python python-gobject gtk4 libadwaita gstreamer gst-plugins-base gst-plugins-good
+          make python python-gobject gtk4 libadwaita gstreamer gst-plugins-base gst-plugins-good
           python-mutagen dbus appstream desktop-file-utils
       - uses: actions/checkout@v4
       - name: Run tests
