@@ -71,6 +71,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val sleep: StateFlow<SleepTimer.Mode> = SleepTimer.mode
     private val prefs = application.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE)
     val visualizer = MutableStateFlow(prefs.getBoolean("visualizer", false))
+    val theme = MutableStateFlow(prefs.getString("theme", io.github.atrzad.ayomusica.ui.theme.MONO)!!)
+    val mode = MutableStateFlow(runCatching {
+        io.github.atrzad.ayomusica.ui.theme.Mode.valueOf(prefs.getString("mode", "Auto")!!)
+    }.getOrDefault(io.github.atrzad.ayomusica.ui.theme.Mode.Auto))
+
+    fun setTheme(id: String) {
+        theme.value = id
+        prefs.edit().putString("theme", id).apply()
+    }
+
+    fun setMode(value: io.github.atrzad.ayomusica.ui.theme.Mode) {
+        mode.value = value
+        prefs.edit().putString("mode", value.name).apply()
+    }
 
     fun setVisualizer(on: Boolean) {
         visualizer.value = on

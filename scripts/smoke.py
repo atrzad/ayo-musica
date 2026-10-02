@@ -52,6 +52,9 @@ if True:
     cache.set_setting("music.identify_new", False)  # never search online during the smoke run
     cache.set_setting("music.lyrics_online", False)
     cache.set_setting("music.lyrics_voice", False)
+    cache.set_setting("music.theme", os.environ.get("AYO_SMOKE_THEME", "mono"))  # to look at other themes
+    if os.environ.get("AYO_SMOKE_SCHEME"):
+        cache.set_setting("music.color_scheme", os.environ["AYO_SMOKE_SCHEME"])
     cache.close()
     music_fixture = original, replacement, first, second
 
@@ -70,13 +73,12 @@ done = False
 
 
 def screenshot(window, name):
+    """The whole window, background included (the theme paints it)."""
     if not args.snapshots:
         return
+    paintable = Gtk.WidgetPaintable.new(window)
     snapshot = Gtk.Snapshot.new()
-    background = Gdk.RGBA()
-    background.parse("#222226" if Adw.StyleManager.get_default().get_dark() else "#fafafb")
-    snapshot.append_color(background, Graphene.Rect().init(0, 0, window.get_width(), window.get_height()))
-    window.snapshot_child(window.get_child(), snapshot)
+    paintable.snapshot(snapshot, window.get_width(), window.get_height())
     node = snapshot.to_node()
     if node:
         renderer = Gsk.CairoRenderer.new()

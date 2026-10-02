@@ -100,6 +100,20 @@ def show_preferences(parent, controller):
                               subtitle="Deixa as capas dos álbuns no mesmo tom do tema.")
     grayscale.set_active(store.setting("music.grayscale_covers", False))
     grayscale.connect("notify::active", lambda row, _p: controller.set_grayscale(row.get_active()))
+    themes = controller.window.get_application().themes
+    choices = themes.choices()
+    theme = Adw.ComboRow(title="Tema", model=Gtk.StringList.new([name for _id, name in choices]),
+                         subtitle="Cores do app. O Papel de parede acompanha o wallust e muda junto com a imagem.")
+    ids = [key for key, _name in choices]
+    theme.set_selected(ids.index(themes.current) if themes.current in ids else 0)
+    theme.connect("notify::selected", lambda row, _p: themes.set_theme(ids[row.get_selected()]))
+    looks.add(theme)
+    from .themes import SCHEMES
+    scheme = Adw.ComboRow(title="Claro ou escuro", model=Gtk.StringList.new([name for _k, name, _v in SCHEMES]))
+    keys = [key for key, _name, _value in SCHEMES]
+    scheme.set_selected(keys.index(themes.scheme) if themes.scheme in keys else 0)
+    scheme.connect("notify::selected", lambda row, _p: themes.set_scheme(keys[row.get_selected()]))
+    looks.add(scheme)
     looks.add(grayscale)
     page.add(looks)
 

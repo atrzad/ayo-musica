@@ -1,46 +1,93 @@
 package io.github.atrzad.ayomusica.ui.theme
 
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
-// Black and white like the desktop app: the system decides light or dark, accents stay achromatic.
-private val Light = lightColorScheme(
-    primary = Color(0xFF111114), onPrimary = Color.White,
-    primaryContainer = Color(0xFFE2E2E6), onPrimaryContainer = Color(0xFF111114),
-    secondary = Color(0xFF3A3A40), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE2E2E6), onSecondaryContainer = Color(0xFF111114),
-    tertiary = Color(0xFF3A3A40), onTertiary = Color.White,
-    background = Color(0xFFF7F7F8), onBackground = Color(0xFF111114),
-    surface = Color(0xFFF7F7F8), onSurface = Color(0xFF111114),
-    surfaceVariant = Color(0xFFE6E6EA), onSurfaceVariant = Color(0xFF55555C),
-    surfaceTint = Color(0xFF111114), outline = Color(0xFFA0A0A8), outlineVariant = Color(0xFFD4D4D8),
-    surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFF1F1F3),
-    surfaceContainer = Color(0xFFECECEF), surfaceContainerHigh = Color(0xFFE6E6EA),
-    surfaceContainerHighest = Color(0xFFE0E0E4), inverseSurface = Color(0xFF26262B),
-    inverseOnSurface = Color(0xFFF1F1F3), inversePrimary = Color(0xFFE2E2E6),
-)
+/** One palette of a theme, the same file the desktop app reads (data/themes/themes.json). */
+@Serializable
+data class Palette(val bg: String, val fg: String, val accent: String, val onAccent: String)
 
-private val Dark = darkColorScheme(
-    primary = Color(0xFFF4F4F5), onPrimary = Color(0xFF111114),
-    primaryContainer = Color(0xFF34343A), onPrimaryContainer = Color(0xFFF4F4F5),
-    secondary = Color(0xFFD4D4D8), onSecondary = Color(0xFF111114),
-    secondaryContainer = Color(0xFF34343A), onSecondaryContainer = Color(0xFFF4F4F5),
-    tertiary = Color(0xFFD4D4D8), onTertiary = Color(0xFF111114),
-    background = Color(0xFF111114), onBackground = Color(0xFFF4F4F5),
-    surface = Color(0xFF111114), onSurface = Color(0xFFF4F4F5),
-    surfaceVariant = Color(0xFF2A2A30), onSurfaceVariant = Color(0xFFB4B4BC),
-    surfaceTint = Color(0xFFF4F4F5), outline = Color(0xFF6E6E76), outlineVariant = Color(0xFF3A3A40),
-    surfaceContainerLowest = Color(0xFF0B0B0D), surfaceContainerLow = Color(0xFF18181C),
-    surfaceContainer = Color(0xFF1C1C21), surfaceContainerHigh = Color(0xFF232328),
-    surfaceContainerHighest = Color(0xFF2A2A30), inverseSurface = Color(0xFFE6E6EA),
-    inverseOnSurface = Color(0xFF26262B), inversePrimary = Color(0xFF34343A),
-)
+@Serializable
+data class ThemeSpec(val id: String, val name: String, val light: Palette, val dark: Palette)
+
+@Serializable
+private data class ThemeFile(val themes: List<ThemeSpec>)
+
+enum class Mode(val title: String) { Auto("Automático"), Light("Claro"), Dark("Escuro") }
+
+const val MONO = "mono"
+/** Android 12+: the colors Android takes from the wallpaper. */
+const val WALLPAPER = "wallpaper"
+
+object Themes {
+    @Volatile private var cache: List<ThemeSpec>? = null
+
+    fun all(context: Context): List<ThemeSpec> = cache ?: runCatching {
+        val text = context.assets.open("themes.json").bufferedReader().use { it.readText() }
+        Json { ignoreUnknownKeys = true }.decodeFromString<ThemeFile>(text).themes
+    }.getOrDefault(emptyList()).also { cache = it }
+
+    fun parse(text: String): List<ThemeSpec> = Json { ignoreUnknownKeys = true }.decodeFromString<ThemeFile>(text).themes
+
+    val wallpaperAvailable: Boolean get() = Build.VERSION.SDK_INT >= 31
+}
+
+fun color(hex: String): Color = Color(("FF" + hex.removePrefix("#")).toLong(16))
+
+/** A full Material scheme from four colors: surfaces step from the background toward the text color. */
+fun scheme(palette: Palette, dark: Boolean): ColorScheme {
+    val bg = color(palette.bg)
+    val fg = color(palette.fg)
+    val accent = color(palette.accent)
+    val onAccent = color(palette.onAccent)
+    fun surface(amount: Float) = lerp(bg, fg, amount)
+    val lift = if (dark) fg else Color.White
+    val base = if (dark) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = accent, onPrimary = onAccent,
+        primaryContainer = lerp(bg, accent, 0.24f), onPrimaryContainer = fg,
+        secondary = lerp(fg, accent, 0.5f), onSecondary = bg,
+        secondaryContainer = lerp(bg, accent, 0.18f), onSecondaryContainer = fg,
+        tertiary = accent, onTertiary = onAccent,
+        tertiaryContainer = lerp(bg, accent, 0.24f), onTertiaryContainer = fg,
+        background = bg, onBackground = fg, surface = bg, onSurface = fg,
+        surfaceVariant = surface(0.09f), onSurfaceVariant = lerp(fg, bg, 0.3f),
+        surfaceTint = accent, outline = lerp(fg, bg, 0.5f), outlineVariant = surface(0.16f),
+        surfaceContainerLowest = lerp(bg, lift, if (dark) 0f else 0.6f),
+        surfaceContainerLow = surface(0.03f), surfaceContainer = surface(0.05f),
+        surfaceContainerHigh = surface(0.08f), surfaceContainerHighest = surface(0.11f),
+        surfaceBright = surface(0.12f), surfaceDim = bg,
+        inverseSurface = fg, inverseOnSurface = bg, inversePrimary = lerp(accent, bg, 0.4f),
+    )
+}
 
 @Composable
-fun AyoTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, content = content)
+fun AyoTheme(themeId: String = MONO, mode: Mode = Mode.Auto, content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val dark = when (mode) {
+        Mode.Auto -> isSystemInDarkTheme()
+        Mode.Light -> false
+        Mode.Dark -> true
+    }
+    val colors = if (themeId == WALLPAPER && Themes.wallpaperAvailable) {
+        if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        val spec = Themes.all(context).let { all -> all.firstOrNull { it.id == themeId } ?: all.firstOrNull() }
+        if (spec == null) (if (dark) darkColorScheme() else lightColorScheme())
+        else scheme(if (dark) spec.dark else spec.light, dark)
+    }
+    MaterialTheme(colorScheme = colors, content = content)
 }

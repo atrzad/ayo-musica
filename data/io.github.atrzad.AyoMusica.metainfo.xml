@@ -34,6 +34,11 @@
     <color type="primary" scheme_preference="dark">#18181c</color>
   </branding>
   <releases>
+    <release version="0.4.0" date="2026-09-30">
+      <description>
+        <p>Dez temas de cores novos, com versão clara e escura, e um tema que segue o papel de parede (wallust).</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-09-30">
       <description>
         <p>Primeira versão como aplicativo próprio, com pacote Flatpak. Importa a biblioteca do Ayo Desk.</p>

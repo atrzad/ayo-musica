@@ -17,7 +17,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = (System.getenv("AYO_VERSION_CODE") ?: "1").toInt()
-        versionName = "0.3.0"
+        versionName = "0.4.0"
     }
 
     signingConfigs {
@@ -56,6 +56,9 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    // The color themes are shared with the desktop app: data/themes/themes.json goes into the assets.
+    sourceSets["main"].assets.srcDir(rootProject.file("../data/themes"))
 }
 
 dependencies {

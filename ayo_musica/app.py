@@ -44,8 +44,11 @@ class Window(Adw.ApplicationWindow):
             self.notify("Sua biblioteca, playlists, estatísticas e backups de tags vieram da instalação anterior.")
 
     def toggle_theme(self):
-        manager = Adw.StyleManager.get_default()
-        manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT if manager.get_dark() else Adw.ColorScheme.FORCE_DARK)
+        themes = self.get_application().themes
+        if themes.current == "wallust":
+            self.notify("O tema Papel de parede segue o claro ou escuro do wallust.")
+            return
+        themes.toggle_dark()
 
     def notify(self, message):
         if not self.closed:
@@ -76,12 +79,12 @@ class Application(Adw.Application):
 
     def do_startup(self):
         Adw.Application.do_startup(self)
-        # DEFAULT follows the desktop's light/dark preference. The CSS keeps accents monochrome.
-        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.DEFAULT)
         display = Gdk.Display.get_default()
         provider = Gtk.CssProvider()
         provider.load_from_path(str(DATA / "style.css"))
         Gtk.StyleContext.add_provider_for_display(display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        from .ui.themes import ThemeManager
+        self.themes = ThemeManager(DATA, display)  # colors on top of the base style; light/dark follows the system
         # The app icon ships with the code (for running from the source tree).
         Gtk.IconTheme.get_for_display(display).add_search_path(str(DATA / "icons"))
         Gtk.Window.set_default_icon_name(APP_ID)
@@ -93,6 +96,7 @@ class Application(Adw.Application):
     def do_activate(self):
         if self.window is None or self.window.closed:
             self.window = Window(self)
+            self.themes.attach(self.window.store)
         self.window.present()
         self.window.page.on_show()
 

@@ -23,6 +23,8 @@ finish-args:
   - --filesystem=~/.cache/ayo-desk/covers:ro
   - --filesystem=~/.local/share/ayo-musica:ro
   - --filesystem=~/.cache/ayo-musica/covers:ro
+  # Tema "Papel de parede": lê as cores geradas pelo wallust.
+  - --filesystem=~/.cache/wallust:ro
 cleanup:
   - /include
   - /lib/pkgconfig

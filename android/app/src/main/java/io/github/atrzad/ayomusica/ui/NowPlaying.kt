@@ -315,7 +315,7 @@ private fun LyricLine(line: Lyrics.Line, lyrics: Lyrics, index: Int, current: In
     val onSurface = MaterialTheme.colorScheme.onSurface
     val color by animateColorAsState(when {
         !lyrics.synced -> onSurface.copy(alpha = 0.85f)
-        index == current -> onSurface
+        index == current -> MaterialTheme.colorScheme.primary  // the theme's accent, like the desktop
         index < current -> onSurface.copy(alpha = 0.5f)
         else -> onSurface.copy(alpha = 0.3f)
     }, label = "lyric")

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 — Temas (PC e Android)
+
+- **10 temas novos**, cada um com versão clara e escura: Nórdico, Oceano, Floresta, Vinho, Âmbar, Lavanda, Rosa,
+  Sépia, Menta e Drácula, além do Preto e branco. As mesmas cores nos dois apps (`data/themes/themes.json`),
+  todas com contraste conferido nos testes.
+- **PC**: Preferências → Geral → Aparência, com Automático/Claro/Escuro guardado entre sessões. O tema
+  **Papel de parede (wallust)** usa as cores do wallust e muda sozinho quando o papel de parede muda. O
+  visualizador, a forma de onda e a linha cantada da letra ficam na cor do tema.
+- **Android**: botão de paleta na barra de cima, com prévia de cada tema, Automático/Claro/Escuro e
+  **Cores do papel de parede** (Android 12+).
+
 ## 0.3.0 — Android
 
 - **Som**: equalizador com os presets do celular e ajuste por banda, graves, velocidade de 0,5× a 2× (a voz

@@ -98,3 +98,16 @@ class StatsAndSpectrumTest {
         org.junit.Assert.assertTrue(smooth[0] in 0.5f..0.9f)
     }
 }
+
+class ThemesTest {
+    @org.junit.Test
+    fun sharedThemeFileParsesAndIsComplete() {
+        val file = java.io.File("../../data/themes/themes.json")
+        val themes = io.github.atrzad.ayomusica.ui.theme.Themes.parse(file.readText())
+        org.junit.Assert.assertTrue(themes.size >= 11)
+        org.junit.Assert.assertEquals("mono", themes.first().id)
+        val scheme = io.github.atrzad.ayomusica.ui.theme.scheme(themes.first { it.id == "vinho" }.dark, dark = true)
+        org.junit.Assert.assertEquals(io.github.atrzad.ayomusica.ui.theme.color("#E07A8D"), scheme.primary)
+        org.junit.Assert.assertEquals(io.github.atrzad.ayomusica.ui.theme.color("#1C0F12"), scheme.background)
+    }
+}

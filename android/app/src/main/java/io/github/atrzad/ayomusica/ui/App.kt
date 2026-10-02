@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
@@ -31,6 +32,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -106,6 +109,9 @@ private fun Main(viewModel: MusicViewModel) {
     val sessionId by PlayerHub.audioSessionId.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var explainVisualizer by remember { mutableStateOf(false) }
+    var choosingTheme by remember { mutableStateOf(false) }
+    val theme by viewModel.theme.collectAsStateWithLifecycle()
+    val mode by viewModel.mode.collectAsStateWithLifecycle()
     val askMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         viewModel.setVisualizer(ok)
     }
@@ -193,8 +199,11 @@ private fun Main(viewModel: MusicViewModel) {
                                     tell("Playlist “${playlist?.name.orEmpty()}” excluída")
                                 }) { Icon(Icons.Rounded.Delete, "Excluir playlist") }
                             }
-                            if (route is Route.Home) IconButton(onClick = viewModel::refresh) {
-                                Icon(Icons.Rounded.Refresh, "Atualizar biblioteca")
+                            if (route is Route.Home) {
+                                IconButton(onClick = { choosingTheme = true }) { Icon(Icons.Rounded.Palette, "Tema") }
+                                IconButton(onClick = viewModel::refresh) {
+                                    Icon(Icons.Rounded.Refresh, "Atualizar biblioteca")
+                                }
                             }
                         }
                     },
@@ -287,6 +296,10 @@ private fun Main(viewModel: MusicViewModel) {
             },
             onDismiss = { addingToPlaylist = null },
         )
+    }
+    if (choosingTheme) {
+        ThemeSheet(theme, mode, MaterialTheme.colorScheme.background.luminance() < 0.3f,
+            onTheme = viewModel::setTheme, onMode = viewModel::setMode, onDismiss = { choosingTheme = false })
     }
     if (explainVisualizer) {
         AlertDialog(

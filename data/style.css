@@ -1,43 +1,39 @@
-/* Map libadwaita's accent roles to the current system foreground/background. */
-@define-color accent_color @window_fg_color;
-@define-color accent_bg_color @window_fg_color;
-@define-color accent_fg_color @window_bg_color;
-
+/* The accent colors (@accent_*) come from the chosen theme (ui/themes.py); "Preto e branco" makes them the
+   window's own text/background, so the whole app stays achromatic. */
 .navigation-sidebar { background: transparent; }
 .navigation-sidebar row { margin: 3px 10px; border-radius: 12px; }
-.navigation-sidebar row:selected { background: alpha(@window_fg_color, 0.15); color: @window_fg_color; }
+.navigation-sidebar row:selected { background: alpha(@accent_bg_color, 0.16); color: @window_fg_color; }
 .numeric { font-variant-numeric: tabular-nums; }
 
-/* Ayo uses the system's light/dark surfaces, but keeps every accent achromatic. */
 button.suggested-action,
 button.suggested-action:hover,
 button.suggested-action:active,
 button.suggested-action:checked {
-  background: @window_fg_color;
-  color: @window_bg_color;
+  background: @accent_bg_color;
+  color: @accent_fg_color;
 }
 button.suggested-action:hover { opacity: 0.86; }
 button:checked,
 togglebutton:checked,
 checkbutton:checked,
-radiobutton:checked { background: alpha(@window_fg_color, 0.16); color: @window_fg_color; }
-switch:checked { background: @window_fg_color; }
-switch:checked slider { background: @window_bg_color; }
+radiobutton:checked { background: alpha(@accent_bg_color, 0.18); color: @window_fg_color; }
+switch:checked { background: @accent_bg_color; }
+switch:checked slider { background: @accent_fg_color; }
 entry selection,
 textview selection,
 calendar:selected,
-calendar day:selected { background: alpha(@window_fg_color, 0.22); color: @window_fg_color; }
+calendar day:selected { background: alpha(@accent_bg_color, 0.28); color: @window_fg_color; }
 .error { color: @window_fg_color; }
 entry:focus,
 entry:focus-within,
 searchentry:focus,
 spinbutton:focus,
-scale:focus { border-color: @window_fg_color; outline-color: @window_fg_color; box-shadow: 0 0 0 2px alpha(@window_fg_color, 0.28); }
-*:focus { outline-color: @window_fg_color; }
+scale:focus { border-color: @accent_color; outline-color: @accent_color; box-shadow: 0 0 0 2px alpha(@accent_color, 0.28); }
+*:focus { outline-color: @accent_color; }
 
 /* Ayo Música */
 .player-bar { border-top: 1px solid alpha(@window_fg_color, 0.1); background: alpha(@window_fg_color, 0.03); }
-.player-bar .play-button { min-width: 44px; min-height: 44px; background: @window_fg_color; color: @window_bg_color; }
+.player-bar .play-button { min-width: 44px; min-height: 44px; background: @accent_bg_color; color: @accent_fg_color; }
 .player-bar .play-button:hover { opacity: 0.86; }
 .cover-button { padding: 0; border-radius: 8px; }
 .cover { border-radius: 8px; }
@@ -49,7 +45,7 @@ scale:focus { border-color: @window_fg_color; outline-color: @window_fg_color; b
 .album-grid > child { border-radius: 14px; }
 .album-grid > child:hover { background: alpha(@window_fg_color, 0.06); }
 .track-table { background: transparent; }
-.track-table row:selected { background: alpha(@window_fg_color, 0.12); color: @window_fg_color; }
+.track-table row:selected { background: alpha(@accent_bg_color, 0.14); color: @window_fg_color; }
 .track-table .rating { letter-spacing: 1px; font-size: 12px; }
 .now-playing-icon { color: @window_fg_color; }
 .link-button { padding: 2px 6px; }
@@ -67,7 +63,7 @@ scale:focus { border-color: @window_fg_color; outline-color: @window_fg_color; b
 .small-pill { padding: 4px 14px; min-height: 0; }
 .detail-header .title-1 { font-size: 30px; }
 .queue-played { opacity: 0.55; }
-.queue-current { background: alpha(@window_fg_color, 0.08); }
+.queue-current { background: alpha(@accent_bg_color, 0.1); }
 .music-sidebar { background: alpha(@window_fg_color, 0.03); }
 .missing-track { opacity: 0.5; }
 .new-playlist-row { opacity: 0.75; }

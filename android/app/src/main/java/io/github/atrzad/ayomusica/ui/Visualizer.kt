@@ -42,7 +42,7 @@ fun SpectrumBackground(sessionId: Int, modifier: Modifier = Modifier, alpha: Flo
             }
         }
     }
-    val color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+    val color = MaterialTheme.colorScheme.primary.copy(alpha = alpha * 1.3f)  // the theme's accent
     Canvas(modifier) {
         val gap = size.width / BARS * 0.25f
         val width = size.width / BARS - gap
