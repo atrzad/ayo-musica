@@ -45,30 +45,6 @@ class LyricsTest {
     }
 
     @Test
-    fun lrclibPrefersSyncedAndChecksDuration() {
-        val results = listOf(
-            LrcLibResult(id = 1, duration = 117.0, plainLyrics = "só texto"),
-            LrcLibResult(id = 2, duration = 118.0, syncedLyrics = "[00:01.00]com tempo", plainLyrics = "com tempo"),
-            LrcLibResult(id = 3, duration = 300.0, syncedLyrics = "[00:01.00]outra versão"),
-        )
-        assertEquals("[00:01.00]com tempo", LrcLib.pick(results, 117)?.synced)
-        assertNull(LrcLib.pick(results.take(1), 200))
-    }
-
-    @Test
-    fun lrclibFallsBackToSearch() {
-        val calls = mutableListOf<String>()
-        val lib = LrcLib { url ->
-            calls += url
-            if ("/get?" in url) null else """[{"id":7,"duration":224.0,"plainLyrics":"letra","syncedLyrics":null}]"""
-        }
-        val found = lib.find("Seu Pereira", "Obsoleto", durationMs = 224_000)
-        assertEquals("letra", found?.plain)
-        assertTrue(calls[0].contains("duration=224"))
-        assertTrue(calls[1].contains("/search?"))
-    }
-
-    @Test
     fun embeddedUsltAndSyltFromId3() {
         val uslt = frame("USLT", byteArrayOf(3) + "por".toByteArray() + byteArrayOf(0) +
             "[00:02.00]primeira\n[00:04.00]segunda".toByteArray())

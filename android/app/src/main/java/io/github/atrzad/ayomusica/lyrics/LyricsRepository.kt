@@ -11,7 +11,7 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 
-/** What is remembered per song: the lyrics found, when we last looked, and the user's delay. */
+/** What is remembered per song: the lyrics found or chosen, when we last looked, and the user's delay. */
 @Serializable
 data class LyricsEntry(
     val synced: String = "",
@@ -21,7 +21,7 @@ data class LyricsEntry(
     val offsetMs: Long = 0,
 )
 
-class LyricsRepository(private val folder: File, private val lrcLib: LrcLib = LrcLib()) {
+class LyricsRepository(private val folder: File, private val finder: LyricsFinder = LyricsFinder()) {
     constructor(context: Context) : this(File(context.filesDir, "lyrics"))
 
     sealed interface Result {
@@ -32,25 +32,34 @@ class LyricsRepository(private val folder: File, private val lrcLib: LrcLib = Lr
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Embedded lyrics first (when synced), then the cache, then LRCLIB. */
+    /**
+     * In order: lyrics the person chose or synced (saved), synced lyrics inside the file, the cache,
+     * then LRCLIB. Plain lyrics are kept as the last resort (and for syncing).
+     */
     suspend fun find(song: Song, embedded: Lyrics?, online: Boolean): Result = withContext(Dispatchers.IO) {
         val entry = read(song)
         val offset = entry?.offsetMs ?: 0
+        if (entry != null && entry.synced.isNotBlank() && entry.source in CHOSEN) {
+            return@withContext Result.Found(Lyrics.parse(entry.synced, entry.source).copy(offsetMs = offset))
+        }
         if (embedded != null && embedded.synced) return@withContext Result.Found(embedded.copy(offsetMs = offset))
         if (entry != null && entry.synced.isNotBlank()) {
             return@withContext Result.Found(Lyrics.parse(entry.synced, entry.source).copy(offsetMs = offset))
         }
         val recentlyChecked = entry != null && System.currentTimeMillis() - entry.checkedAt < RETRY_MS
-        var plain = embedded ?: entry?.plain?.takeIf { it.isNotBlank() }?.let { Lyrics.parse(it, entry.source) }
+        var plain = entry?.plain?.takeIf { it.isNotBlank() && entry.source in CHOSEN }?.let { Lyrics.parse(it, entry.source) }
+            ?: embedded ?: entry?.plain?.takeIf { it.isNotBlank() }?.let { Lyrics.parse(it, entry.source) }
         if (online && !recentlyChecked && song.title.isNotBlank()) {
             try {
-                val found = lrcLib.find(song.artist, song.title, song.album, song.durationMs)
-                write(song, LyricsEntry(found?.synced.orEmpty(), found?.plain.orEmpty(), "lrclib",
+                val found = finder.find(song)
+                write(song, LyricsEntry(found?.syncedLyrics.orEmpty(), found?.plainLyrics.orEmpty(), "lrclib",
                     System.currentTimeMillis(), offset))
-                if (found != null && found.synced.isNotBlank()) {
-                    return@withContext Result.Found(Lyrics.parse(found.synced, "lrclib").copy(offsetMs = offset))
+                if (found != null && found.synced) {
+                    return@withContext Result.Found(Lyrics.parse(found.syncedLyrics, "lrclib").copy(offsetMs = offset))
                 }
-                if (plain == null && found != null && found.plain.isNotBlank()) plain = Lyrics.parse(found.plain, "lrclib")
+                if (plain == null && found != null && !found.plainLyrics.isNullOrBlank()) {
+                    plain = Lyrics.parse(found.plainLyrics, "lrclib")
+                }
             } catch (_: IOException) {
                 if (plain == null) return@withContext Result.Offline
             }
@@ -58,13 +67,24 @@ class LyricsRepository(private val folder: File, private val lrcLib: LrcLib = Lr
         plain?.let { Result.Found(it) } ?: Result.Missing
     }
 
+    /** Lyrics picked in the manual search, or synced by hand or by voice. */
+    suspend fun save(song: Song, synced: String, plain: String, source: String) = withContext(Dispatchers.IO) {
+        val offset = read(song)?.offsetMs ?: 0
+        write(song, LyricsEntry(synced, plain, source, System.currentTimeMillis(), if (synced.isNotBlank()) 0 else offset))
+    }
+
+    suspend fun search(query: String, song: Song?): List<LrcLibResult> = withContext(Dispatchers.IO) {
+        finder.search(query, song)
+    }
+
     suspend fun setOffset(song: Song, offsetMs: Long) = withContext(Dispatchers.IO) {
         write(song, (read(song) ?: LyricsEntry()).copy(offsetMs = offsetMs))
     }
 
+    /** Forget what was found automatically (choices and syncs made by the person stay). */
     suspend fun forget(song: Song) = withContext(Dispatchers.IO) {
-        val offset = read(song)?.offsetMs ?: 0
-        write(song, LyricsEntry(offsetMs = offset))
+        val entry = read(song) ?: return@withContext
+        if (entry.source !in CHOSEN) write(song, LyricsEntry(offsetMs = entry.offsetMs))
     }
 
     private fun file(song: Song): File {
@@ -83,6 +103,8 @@ class LyricsRepository(private val folder: File, private val lrcLib: LrcLib = Lr
     }
 
     companion object {
-        const val RETRY_MS = 7L * 24 * 3600 * 1000
+        const val RETRY_MS = 3L * 24 * 3600 * 1000
+        /** Sources that came from the person: never replaced by an automatic search. */
+        val CHOSEN = setOf("escolhida", "manual", "voz")
     }
 }

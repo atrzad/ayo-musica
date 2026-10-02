@@ -6,8 +6,6 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import kotlin.math.abs
-import kotlin.math.roundToLong
 
 @Serializable
 data class LrcLibResult(
@@ -19,39 +17,36 @@ data class LrcLibResult(
     val instrumental: Boolean = false,
     val plainLyrics: String? = null,
     val syncedLyrics: String? = null,
-)
+) {
+    val synced: Boolean get() = !syncedLyrics.isNullOrBlank()
+    val hasLyrics: Boolean get() = synced || !plainLyrics.isNullOrBlank()
+}
 
 /** lrclib.net: free, open lyrics database (synced when available). No key needed. */
 class LrcLib(private val get: (String) -> String? = ::httpGet) {
-    data class Found(val synced: String, val plain: String, val instrumental: Boolean)
-
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Best match, or null. Throws IOException when offline. */
-    fun find(artist: String, title: String, album: String = "", durationMs: Long = 0): Found? {
-        val seconds = if (durationMs > 0) (durationMs / 1000.0).roundToLong() else 0
-        val exact = get(url("get", buildMap {
+    /** Exact lookup; null when there is no such song. Throws IOException when offline. */
+    fun get(artist: String, title: String, album: String = "", seconds: Long = 0): LrcLibResult? {
+        val body = get(url("get", buildMap {
             put("artist_name", artist); put("track_name", title)
             if (album.isNotBlank()) put("album_name", album)
             if (seconds > 0) put("duration", seconds.toString())
-        }))
-        if (exact != null) {
-            runCatching { json.decodeFromString<LrcLibResult>(exact) }.getOrNull()
-                ?.takeIf { it.id != 0L }?.let { return pick(listOf(it), seconds) }
-        }
-        val results = get(url("search", mapOf("track_name" to title, "artist_name" to artist))) ?: return null
-        return pick(runCatching { json.decodeFromString<List<LrcLibResult>>(results) }.getOrDefault(emptyList()), seconds)
+        })) ?: return null
+        return runCatching { json.decodeFromString<LrcLibResult>(body) }.getOrNull()?.takeIf { it.id != 0L }
     }
+
+    /** Search by fields or by free text (`q`). */
+    fun search(params: Map<String, String>): List<LrcLibResult> {
+        val body = get(url("search", params)) ?: return emptyList()
+        return runCatching { json.decodeFromString<List<LrcLibResult>>(body) }.getOrDefault(emptyList())
+    }
+
+    fun search(query: String): List<LrcLibResult> = search(mapOf("q" to query))
 
     companion object {
         const val BASE = "https://lrclib.net/api"
-        const val USER_AGENT = "AyoMusica-Android/0.2.0 (https://github.com/atrzad/ayo-musica)"
-
-        fun pick(results: List<LrcLibResult>, seconds: Long): Found? {
-            val fitting = results.filter { seconds <= 0 || it.duration == null || abs(it.duration - seconds) <= 5 }
-            val chosen = fitting.firstOrNull { !it.syncedLyrics.isNullOrBlank() } ?: fitting.firstOrNull() ?: return null
-            return Found(chosen.syncedLyrics.orEmpty(), chosen.plainLyrics.orEmpty(), chosen.instrumental)
-        }
+        const val USER_AGENT = "AyoMusica-Android (https://github.com/atrzad/ayo-musica)"
 
         fun url(path: String, params: Map<String, String>): String =
             "$BASE/$path?" + params.entries.joinToString("&") { (key, value) ->
