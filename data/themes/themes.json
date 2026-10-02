@@ -1,37 +1,333 @@
 {
-  "themes": [
-    {"id": "mono", "name": "Preto e branco",
-     "light": {"bg": "#F7F7F8", "fg": "#111114", "accent": "#111114", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#111114", "fg": "#F4F4F5", "accent": "#F4F4F5", "onAccent": "#111114"}},
-    {"id": "nordico", "name": "Nórdico",
-     "light": {"bg": "#ECEFF4", "fg": "#2E3440", "accent": "#4C6A92", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#2E3440", "fg": "#ECEFF4", "accent": "#88C0D0", "onAccent": "#1F242D"}},
-    {"id": "oceano", "name": "Oceano",
-     "light": {"bg": "#F1F6FB", "fg": "#0D2436", "accent": "#1560B8", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#0B1824", "fg": "#DCEAF6", "accent": "#5AAEEB", "onAccent": "#06121C"}},
-    {"id": "floresta", "name": "Floresta",
-     "light": {"bg": "#F2F6F0", "fg": "#18281A", "accent": "#2E6B34", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#0F1811", "fg": "#DCEADB", "accent": "#78C47D", "onAccent": "#0A140C"}},
-    {"id": "vinho", "name": "Vinho",
-     "light": {"bg": "#FAF3F4", "fg": "#2B1418", "accent": "#8E2438", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#1C0F12", "fg": "#F2DFE2", "accent": "#E07A8D", "onAccent": "#22090F"}},
-    {"id": "ambar", "name": "Âmbar",
-     "light": {"bg": "#FDF7EE", "fg": "#2D2113", "accent": "#A35300", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#1D1610", "fg": "#F6E7D2", "accent": "#FFB44D", "onAccent": "#2A1904"}},
-    {"id": "lavanda", "name": "Lavanda",
-     "light": {"bg": "#F7F4FC", "fg": "#221B30", "accent": "#6246AE", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#17131F", "fg": "#EAE3F7", "accent": "#B8A2F2", "onAccent": "#1B1030"}},
-    {"id": "rosa", "name": "Rosa",
-     "light": {"bg": "#FDF3F7", "fg": "#2E1622", "accent": "#B0174F", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#1F1017", "fg": "#F7DEE8", "accent": "#F48FB1", "onAccent": "#2B0716"}},
-    {"id": "sepia", "name": "Sépia",
-     "light": {"bg": "#F5EEDC", "fg": "#3B2F22", "accent": "#7F5530", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#1F1A14", "fg": "#EADFC8", "accent": "#D6A676", "onAccent": "#241709"}},
-    {"id": "menta", "name": "Menta",
-     "light": {"bg": "#EFF9F6", "fg": "#10302A", "accent": "#00796C", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#0D1B18", "fg": "#D5F0EA", "accent": "#4DD0C4", "onAccent": "#04201C"}},
-    {"id": "dracula", "name": "Drácula",
-     "light": {"bg": "#F8F8F2", "fg": "#282A36", "accent": "#7445D6", "onAccent": "#FFFFFF"},
-     "dark": {"bg": "#282A36", "fg": "#F8F8F2", "accent": "#BD93F9", "onAccent": "#1E1F29"}}
-  ]
+ "themes": [
+  {
+   "id": "mono",
+   "name": "Preto e branco",
+   "light": {
+    "bg": "#F7F7F8",
+    "fg": "#111114",
+    "accent": "#111114",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#111114",
+    "fg": "#F4F4F5",
+    "accent": "#F4F4F5",
+    "onAccent": "#111114"
+   }
+  },
+  {
+   "id": "nordico",
+   "name": "Nórdico",
+   "light": {
+    "bg": "#ECEFF4",
+    "fg": "#2E3440",
+    "accent": "#4C6A92",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#2E3440",
+    "fg": "#ECEFF4",
+    "accent": "#88C0D0",
+    "onAccent": "#1F242D"
+   }
+  },
+  {
+   "id": "oceano",
+   "name": "Oceano",
+   "light": {
+    "bg": "#F1F6FB",
+    "fg": "#0D2436",
+    "accent": "#1560B8",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#0B1824",
+    "fg": "#DCEAF6",
+    "accent": "#5AAEEB",
+    "onAccent": "#06121C"
+   }
+  },
+  {
+   "id": "floresta",
+   "name": "Floresta",
+   "light": {
+    "bg": "#F2F6F0",
+    "fg": "#18281A",
+    "accent": "#2E6B34",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#0F1811",
+    "fg": "#DCEADB",
+    "accent": "#78C47D",
+    "onAccent": "#0A140C"
+   }
+  },
+  {
+   "id": "vinho",
+   "name": "Vinho",
+   "light": {
+    "bg": "#FAF3F4",
+    "fg": "#2B1418",
+    "accent": "#8E2438",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#1C0F12",
+    "fg": "#F2DFE2",
+    "accent": "#E07A8D",
+    "onAccent": "#22090F"
+   }
+  },
+  {
+   "id": "ambar",
+   "name": "Âmbar",
+   "light": {
+    "bg": "#FDF7EE",
+    "fg": "#2D2113",
+    "accent": "#A35300",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#1D1610",
+    "fg": "#F6E7D2",
+    "accent": "#FFB44D",
+    "onAccent": "#2A1904"
+   }
+  },
+  {
+   "id": "lavanda",
+   "name": "Lavanda",
+   "light": {
+    "bg": "#F7F4FC",
+    "fg": "#221B30",
+    "accent": "#6246AE",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#17131F",
+    "fg": "#EAE3F7",
+    "accent": "#B8A2F2",
+    "onAccent": "#1B1030"
+   }
+  },
+  {
+   "id": "rosa",
+   "name": "Rosa",
+   "light": {
+    "bg": "#FDF3F7",
+    "fg": "#2E1622",
+    "accent": "#B0174F",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#1F1017",
+    "fg": "#F7DEE8",
+    "accent": "#F48FB1",
+    "onAccent": "#2B0716"
+   }
+  },
+  {
+   "id": "sepia",
+   "name": "Sépia",
+   "light": {
+    "bg": "#F5EEDC",
+    "fg": "#3B2F22",
+    "accent": "#7F5530",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#1F1A14",
+    "fg": "#EADFC8",
+    "accent": "#D6A676",
+    "onAccent": "#241709"
+   }
+  },
+  {
+   "id": "menta",
+   "name": "Menta",
+   "light": {
+    "bg": "#EFF9F6",
+    "fg": "#10302A",
+    "accent": "#00796C",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#0D1B18",
+    "fg": "#D5F0EA",
+    "accent": "#4DD0C4",
+    "onAccent": "#04201C"
+   }
+  },
+  {
+   "id": "dracula",
+   "name": "Drácula",
+   "light": {
+    "bg": "#F8F8F2",
+    "fg": "#282A36",
+    "accent": "#7445D6",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#282A36",
+    "fg": "#F8F8F2",
+    "accent": "#BD93F9",
+    "onAccent": "#1E1F29"
+   }
+  },
+  {
+   "id": "catppuccin",
+   "name": "Catppuccin",
+   "source": "kitty",
+   "light": {
+    "bg": "#EFF1F5",
+    "fg": "#4C4F69",
+    "accent": "#8839EF",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#1E1E2E",
+    "fg": "#CDD6F4",
+    "accent": "#CBA6F7",
+    "onAccent": "#1E1E2E"
+   }
+  },
+  {
+   "id": "gruvbox",
+   "name": "Gruvbox",
+   "source": "kitty",
+   "light": {
+    "bg": "#FBF1C7",
+    "fg": "#3C3836",
+    "accent": "#AF3A03",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#282828",
+    "fg": "#EBDBB2",
+    "accent": "#FE8019",
+    "onAccent": "#282828"
+   }
+  },
+  {
+   "id": "tokyonight",
+   "name": "Tokyo Night",
+   "source": "kitty",
+   "light": {
+    "bg": "#E1E2E7",
+    "fg": "#343B58",
+    "accent": "#2E5FBF",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#1A1B26",
+    "fg": "#C0CAF5",
+    "accent": "#7AA2F7",
+    "onAccent": "#1A1B26"
+   }
+  },
+  {
+   "id": "solarized",
+   "name": "Solarized",
+   "source": "kitty",
+   "light": {
+    "bg": "#FDF6E3",
+    "fg": "#073642",
+    "accent": "#1E6FA8",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#002B36",
+    "fg": "#EEE8D5",
+    "accent": "#3C97D6",
+    "onAccent": "#002B36"
+   }
+  },
+  {
+   "id": "onedark",
+   "name": "One Dark",
+   "source": "kitty",
+   "light": {
+    "bg": "#FAFAFA",
+    "fg": "#383A42",
+    "accent": "#3A6FD8",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#282C34",
+    "fg": "#DCDFE4",
+    "accent": "#61AFEF",
+    "onAccent": "#1E2127"
+   }
+  },
+  {
+   "id": "rosepine",
+   "name": "Rosé Pine",
+   "source": "kitty",
+   "light": {
+    "bg": "#FAF4ED",
+    "fg": "#4A4667",
+    "accent": "#286983",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#191724",
+    "fg": "#E0DEF4",
+    "accent": "#EBBCBA",
+    "onAccent": "#191724"
+   }
+  },
+  {
+   "id": "everforest",
+   "name": "Everforest",
+   "source": "kitty",
+   "light": {
+    "bg": "#FDF6E3",
+    "fg": "#3E4A50",
+    "accent": "#5A7300",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#2D353B",
+    "fg": "#D3C6AA",
+    "accent": "#A7C080",
+    "onAccent": "#232A2E"
+   }
+  },
+  {
+   "id": "kanagawa",
+   "name": "Kanagawa",
+   "source": "kitty",
+   "light": {
+    "bg": "#F2ECBC",
+    "fg": "#474755",
+    "accent": "#4D699B",
+    "onAccent": "#FFFFFF"
+   },
+   "dark": {
+    "bg": "#1F1F28",
+    "fg": "#DCD7BA",
+    "accent": "#7E9CD8",
+    "onAccent": "#1F1F28"
+   }
+  },
+  {
+   "id": "pixel",
+   "name": "Pixel",
+   "style": "pixel",
+   "light": {
+    "bg": "#E0F8D0",
+    "fg": "#081820",
+    "accent": "#346856",
+    "onAccent": "#E0F8D0"
+   },
+   "dark": {
+    "bg": "#081820",
+    "fg": "#E0F8D0",
+    "accent": "#88C070",
+    "onAccent": "#081820"
+   }
+  }
+ ]
 }

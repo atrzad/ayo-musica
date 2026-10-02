@@ -25,8 +25,15 @@ data class Song(
     val dateAdded: Long = 0,
     val relativePath: String = "",
     val displayName: String = "",
+    val genre: String = "",
+    /** Official cover downloaded by the analyzer (a file in the app's storage), shown instead of the file's. */
+    val coverFile: String? = null,
 ) {
     val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+    /** Where the cover comes from: the analyzer's official cover, or the song file's own picture. */
+    val artUri: Uri get() = coverFile?.let { Uri.fromFile(java.io.File(it)) } ?: uri
+    val shownGenre: String get() = genre.ifBlank { "Sem gênero" }
+    val folder: String get() = relativePath.trimEnd('/').ifBlank { "Pasta principal" }
     val shownArtist: String get() = artist.ifBlank { UNKNOWN_ARTIST }
     val shownAlbum: String get() = album.ifBlank { UNKNOWN_ALBUM }
     val albumKey: String get() = "${fold(albumArtist.ifBlank { artist })}|${fold(album)}"
@@ -38,6 +45,9 @@ data class Album(val key: String, val title: String, val artist: String, val yea
 }
 
 data class Artist(val name: String, val songs: List<Song>, val albumCount: Int)
+
+/** A genre or a folder: a name and its songs. */
+data class Group(val name: String, val songs: List<Song>)
 
 /** "São Paulo" → "sao paulo": search without accents or case. */
 fun fold(text: String): String =
@@ -56,6 +66,14 @@ object Grouping {
         Artist(name, tracks.sortedWith(compareBy({ fold(it.album) }, { it.disc }, { it.track })),
             tracks.map { it.albumKey }.distinct().size)
     }.sortedBy { fold(it.name) }
+
+    fun genres(songs: List<Song>): List<Group> =
+        songs.groupBy { it.shownGenre }.map { (name, tracks) -> Group(name, tracks.sortedBy { fold(it.title) }) }
+            .sortedBy { fold(it.name) }
+
+    fun folders(songs: List<Song>): List<Group> =
+        songs.groupBy { it.folder }.map { (name, tracks) -> Group(name, tracks.sortedBy { fold(it.displayName) }) }
+            .sortedBy { fold(it.name) }
 
     fun search(songs: List<Song>, query: String): List<Song> {
         val words = fold(query).split(Regex("\\s+")).filter { it.isNotEmpty() }

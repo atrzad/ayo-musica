@@ -18,7 +18,7 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
             .setAlbumArtist(albumArtist.ifBlank { null })
             .setTrackNumber(track.takeIf { it > 0 })
             .setDurationMs(durationMs.takeIf { it > 0 })
-            .setArtworkUri(uri)  // loaded by ArtworkBitmapLoader from the file's tags
+            .setArtworkUri(artUri)  // the official cover, or the file's own (ArtworkBitmapLoader)
             .setIsPlayable(true)
             .setIsBrowsable(false)
             .build(),

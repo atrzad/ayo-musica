@@ -40,20 +40,18 @@ import io.github.atrzad.ayomusica.ui.theme.WALLPAPER
 import io.github.atrzad.ayomusica.ui.theme.color
 
 /** Pick a color theme and light/dark; the same themes as the desktop app. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ThemeSheet(current: String, mode: Mode, dark: Boolean, onTheme: (String) -> Unit, onMode: (Mode) -> Unit,
-               onDismiss: () -> Unit) {
+fun ThemeContent(current: String, mode: Mode, dark: Boolean, onTheme: (String) -> Unit, onMode: (Mode) -> Unit) {
     val themes = Themes.all(LocalContext.current)
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    run {
         Column(Modifier.navigationBarsPadding()) {
-            Text("Tema", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleLarge)
+            Text("Claro ou escuro", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleSmall)
             Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Mode.entries.forEach { option ->
                     FilterChip(mode == option, { onMode(option) }, label = { Text(option.title) })
                 }
             }
-            LazyColumn(Modifier.padding(bottom = 16.dp)) {
+            LazyColumn(Modifier.padding(bottom = 16.dp).weight(1f, fill = false)) {
                 if (Themes.wallpaperAvailable) {
                     item {
                         ThemeRow("Cores do papel de parede", current == WALLPAPER, { onTheme(WALLPAPER) }) {

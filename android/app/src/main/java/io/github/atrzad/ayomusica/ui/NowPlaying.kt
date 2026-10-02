@@ -93,160 +93,17 @@ fun rememberPosition(player: PlayerConnection, ui: PlayerUi, everyMs: Long = 250
     return position
 }
 
-private fun MediaItem.title() = mediaMetadata.title?.toString().orEmpty()
-private fun MediaItem.artist() = mediaMetadata.artist?.toString().orEmpty()
+fun MediaItem.title() = mediaMetadata.title?.toString().orEmpty()
+fun MediaItem.artist() = mediaMetadata.artist?.toString().orEmpty()
 
-@Composable
-fun MiniPlayer(ui: PlayerUi, player: PlayerConnection, onExpand: () -> Unit) {
-    val item = ui.current ?: return
-    val position = rememberPosition(player, ui, 500)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Column(Modifier.clickable(onClick = onExpand)) {
-            LinearProgressIndicator(
-                progress = { if (ui.durationMs > 0) (position.toFloat() / ui.durationMs).coerceIn(0f, 1f) else 0f },
-                modifier = Modifier.fillMaxWidth().height(2.dp),
-                drawStopIndicator = {},
-            )
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Cover(item.localConfiguration?.uri ?: item.requestMetadata.mediaUri, 44.dp)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(item.title(), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    Text(item.artist(), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                IconButton(onClick = player::toggle) {
-                    Icon(if (ui.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        if (ui.isPlaying) "Pausar" else "Tocar")
-                }
-                IconButton(onClick = { player.next() }) { Icon(Icons.Rounded.SkipNext, "Próxima") }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ExpandedPlayer(
-    ui: PlayerUi,
-    player: PlayerConnection,
-    lyrics: LyricsUi,
-    favorite: Boolean,
-    onFavorite: () -> Unit,
-    visualizer: Boolean,
-    onVisualizer: () -> Unit,
-    sessionId: Int,
-    sleep: SleepTimer.Mode,
-    onSleep: (Int?) -> Unit,
-    onCollapse: () -> Unit,
-    onArtist: () -> Unit,
-    onShiftLyrics: (Long) -> Unit,
-    onRetryLyrics: () -> Unit,
-) {
-    val item = ui.current
-    var showLyrics by rememberSaveable { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
-    var showSound by remember { mutableStateOf(false) }
-    val position = rememberPosition(player, ui, 100)
-    val dimIcon = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-      Box(Modifier.fillMaxSize()) {
-        if (visualizer && ui.isPlaying) {
-            SpectrumBackground(sessionId, Modifier.fillMaxWidth().fillMaxHeight(0.6f).align(Alignment.BottomCenter))
-        }
-        Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 20.dp)) {
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onCollapse) { Icon(Icons.Rounded.KeyboardArrowDown, "Recolher") }
-                Text("Tocando agora", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                IconButton(onClick = onVisualizer) {
-                    Icon(Icons.Rounded.GraphicEq, "Visualizador",
-                        tint = if (visualizer) MaterialTheme.colorScheme.onSurface else dimIcon)
-                }
-                IconButton(onClick = { showSound = true }) {
-                    Icon(Icons.Rounded.Tune, "Som: equalizador, velocidade e timer",
-                        tint = if (sleep != SleepTimer.Mode.Off || ui.speed != 1f) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                IconButton(onClick = { showQueue = true }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, "Fila") }
-            }
-            Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                if (showLyrics) {
-                    LyricsPanel(lyrics, position, onSeek = player::seekTo, onRetry = onRetryLyrics)
-                } else {
-                    BoxWithConstraints(contentAlignment = Alignment.Center) {
-                        val side = minOf(maxWidth, maxHeight)
-                        val px = with(LocalDensity.current) { side.roundToPx() }.coerceAtMost(1024)
-                        Cover(item?.localConfiguration?.uri ?: item?.requestMetadata?.mediaUri,
-                            Modifier.size(side).aspectRatio(1f), px, 16.dp)
-                    }
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(item?.title().orEmpty(), style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(item?.artist().orEmpty(), Modifier.clickable(onClick = onArtist).padding(vertical = 2.dp),
-                        style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                IconButton(onClick = onFavorite) {
-                    Icon(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        if (favorite) "Tirar das favoritas" else "Favoritar")
-                }
-            }
-            SeekBar(position, ui.durationMs, player::seekTo)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                IconButton(onClick = { player.setShuffle(!ui.shuffle) }) {
-                    Icon(Icons.Rounded.Shuffle, "Ordem aleatória",
-                        tint = if (ui.shuffle) MaterialTheme.colorScheme.onSurface else dim)
-                }
-                IconButton(onClick = player::previous, Modifier.size(56.dp)) {
-                    Icon(Icons.Rounded.SkipPrevious, "Anterior", Modifier.size(36.dp))
-                }
-                FilledIconButton(onClick = player::toggle, Modifier.size(72.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors()) {
-                    Icon(if (ui.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        if (ui.isPlaying) "Pausar" else "Tocar", Modifier.size(40.dp))
-                }
-                IconButton(onClick = { player.next() }, Modifier.size(56.dp)) {
-                    Icon(Icons.Rounded.SkipNext, "Próxima", Modifier.size(36.dp))
-                }
-                IconButton(onClick = player::cycleRepeat) {
-                    Icon(if (ui.repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        "Repetir", tint = if (ui.repeat == Player.REPEAT_MODE_OFF) dim else MaterialTheme.colorScheme.onSurface)
-                }
-            }
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilterChip(selected = showLyrics, onClick = { showLyrics = !showLyrics }, label = { Text("Letra") },
-                    leadingIcon = { Icon(Icons.Rounded.Lyrics, null, Modifier.size(18.dp)) })
-                Spacer(Modifier.weight(1f))
-                val shown = lyrics as? LyricsUi.Shown
-                if (showLyrics && shown != null && shown.lyrics.synced) {
-                    TextButton(onClick = { onShiftLyrics(-500) }) { Text("−0,5 s") }
-                    Text(offsetText(shown.lyrics.offsetMs), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = { onShiftLyrics(500) }) { Text("+0,5 s") }
-                }
-            }
-        }
-      }
-    }
-    if (showQueue) QueueSheet(ui, player) { showQueue = false }
-    if (showSound) SoundSheet(ui.speed, player::setSpeed, sleep, onSleep) { showSound = false }
-}
-
-private fun offsetText(ms: Long): String = when {
+fun offsetText(ms: Long): String = when {
     ms == 0L -> "no tempo"
     ms > 0 -> "%.1f s antes".format(ms / 1000.0).replace('.', ',')
     else -> "%.1f s depois".format(-ms / 1000.0).replace('.', ',')
 }
 
 @Composable
-private fun SeekBar(position: Long, duration: Long, onSeek: (Long) -> Unit) {
+fun SeekBar(position: Long, duration: Long, onSeek: (Long) -> Unit) {
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
     val shown = if (dragging) dragValue else if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
@@ -343,7 +200,7 @@ private fun sourceText(lyrics: Lyrics): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QueueSheet(ui: PlayerUi, player: PlayerConnection, onDismiss: () -> Unit) {
+fun QueueSheet(ui: PlayerUi, player: PlayerConnection, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text("Fila", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge)
         val start = ui.queue.indexOfFirst { it.index == ui.index }.coerceAtLeast(0)

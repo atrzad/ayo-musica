@@ -23,7 +23,7 @@ class ArtworkBitmapLoader(private val context: Context) : BitmapLoader {
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> = fallback.decodeBitmap(data)
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
-        if (uri.scheme != "content") return fallback.loadBitmap(uri)
+        if (uri.scheme != "content" && uri.scheme != "file") return fallback.loadBitmap(uri)
         return executor.submit<Bitmap> {
             Artwork.load(context, uri, 512) ?: throw IOException("Sem capa")
         }

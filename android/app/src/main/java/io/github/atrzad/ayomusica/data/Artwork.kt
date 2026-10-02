@@ -24,7 +24,9 @@ object Artwork {
         cache.get(key)?.let { return it }
         synchronized(missing) { if (key in missing) return null }
         val bitmap = runCatching {
-            if (Build.VERSION.SDK_INT >= 29) {
+            if (uri.scheme == "file") {  // official cover saved by the analyzer
+                uri.path?.let { java.io.File(it).readBytes() }?.let { decode(it, size) }
+            } else if (Build.VERSION.SDK_INT >= 29) {
                 context.contentResolver.loadThumbnail(uri, Size(size, size), null)
             } else {
                 MediaMetadataRetriever().run {

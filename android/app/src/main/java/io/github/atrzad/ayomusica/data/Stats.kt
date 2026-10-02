@@ -61,7 +61,7 @@ class Stats(private val file: File) {
 
 /** The automatic lists shown with the playlists. */
 enum class AutoList(val title: String) {
-    Favorites("Favoritas"), MostPlayed("Mais tocadas"), Recent("Tocadas recentemente"), Added("Adicionadas recentemente");
+    Favorites("Curtidas"), MostPlayed("Mais tocadas"), Recent("Tocadas recentemente"), Added("Adicionadas recentemente");
 
     fun songs(library: List<Song>, stats: Map<Long, SongStats>, limit: Int = 100): List<Song> = when (this) {
         Favorites -> library.filter { stats[it.id]?.favorite == true }

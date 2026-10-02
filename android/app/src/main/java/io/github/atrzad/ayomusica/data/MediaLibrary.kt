@@ -19,6 +19,7 @@ class MediaLibrary(private val context: Context) {
             ))
             add("album_artist")
             if (Build.VERSION.SDK_INT >= 29) add(MediaStore.Audio.Media.RELATIVE_PATH)
+            if (Build.VERSION.SDK_INT >= 30) add(MediaStore.Audio.Media.GENRE)
         }.toTypedArray()
         val songs = mutableListOf<Song>()
         context.contentResolver.query(
@@ -39,6 +40,7 @@ class MediaLibrary(private val context: Context) {
             val name = index(MediaStore.Audio.Media.DISPLAY_NAME)
             val albumArtist = index("album_artist")
             val path = if (Build.VERSION.SDK_INT >= 29) index(MediaStore.Audio.Media.RELATIVE_PATH) else -1
+            val genre = if (Build.VERSION.SDK_INT >= 30) index(MediaStore.Audio.Media.GENRE) else -1
             while (cursor.moveToNext()) {
                 val rawTrack = if (track >= 0) cursor.getInt(track) else 0
                 songs += Song(
@@ -55,6 +57,7 @@ class MediaLibrary(private val context: Context) {
                     dateAdded = if (added >= 0) cursor.getLong(added) else 0,
                     relativePath = if (path >= 0) cursor.getString(path).orEmpty() else "",
                     displayName = cursor.getString(name).orEmpty(),
+                    genre = if (genre >= 0) cleanUnknown(cursor.getString(genre)) else "",
                 )
             }
         }

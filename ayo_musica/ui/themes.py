@@ -85,6 +85,13 @@ ACCENT_RULES = """
 """
 
 
+PIXEL_CSS = """
+* { border-radius: 0; }
+window, label, button, entry { font-family: monospace; }
+.cover, .cover-button, .cover.large-cover { border-radius: 0; }
+"""
+
+
 def mono_css():
     return """
 @define-color accent_color @window_fg_color;
@@ -181,6 +188,8 @@ class ThemeManager:
             css = mono_css()
         else:
             css = palette_css(theme["dark" if dark else "light"], dark)
+        if theme is not None and theme.get("style") == "pixel":
+            css += PIXEL_CSS
         self.provider.load_from_string(css)
 
     def _watch_wallust(self, on):

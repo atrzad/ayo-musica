@@ -3,7 +3,17 @@ package io.github.atrzad.ayomusica.ui.theme
 import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import io.github.atrzad.ayomusica.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -21,7 +31,7 @@ import kotlinx.serialization.json.Json
 data class Palette(val bg: String, val fg: String, val accent: String, val onAccent: String)
 
 @Serializable
-data class ThemeSpec(val id: String, val name: String, val light: Palette, val dark: Palette)
+data class ThemeSpec(val id: String, val name: String, val light: Palette, val dark: Palette, val style: String = "")
 
 @Serializable
 private data class ThemeFile(val themes: List<ThemeSpec>)
@@ -88,6 +98,26 @@ fun AyoTheme(themeId: String = MONO, mode: Mode = Mode.Auto, content: @Composabl
         val spec = Themes.all(context).let { all -> all.firstOrNull { it.id == themeId } ?: all.firstOrNull() }
         if (spec == null) (if (dark) darkColorScheme() else lightColorScheme())
         else scheme(if (dark) spec.dark else spec.light, dark)
+    }
+    val spec = Themes.all(context).firstOrNull { it.id == themeId }
+    if (spec?.style == "pixel") {
+        // Pixel: a pixel font everywhere and square corners, like an old handheld.
+        val pixel = FontFamily(Font(R.font.pixelify_sans))
+        val base = Typography()
+        fun TextStyle.px() = copy(fontFamily = pixel)
+        val typography = Typography(
+            displayLarge = base.displayLarge.px(), displayMedium = base.displayMedium.px(), displaySmall = base.displaySmall.px(),
+            headlineLarge = base.headlineLarge.px(), headlineMedium = base.headlineMedium.px(), headlineSmall = base.headlineSmall.px(),
+            titleLarge = base.titleLarge.px(), titleMedium = base.titleMedium.px(), titleSmall = base.titleSmall.px(),
+            bodyLarge = base.bodyLarge.px(), bodyMedium = base.bodyMedium.px(), bodySmall = base.bodySmall.px(),
+            labelLarge = base.labelLarge.px(), labelMedium = base.labelMedium.px(), labelSmall = base.labelSmall.px(),
+        )
+        val square = RoundedCornerShape(2.dp)
+        val shapes = Shapes(extraSmall = square, small = square, medium = square, large = square, extraLarge = square)
+        MaterialTheme(colorScheme = colors, typography = typography, shapes = shapes) {
+            CompositionLocalProvider(LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = pixel), content = content)
+        }
+        return
     }
     MaterialTheme(colorScheme = colors, content = content)
 }

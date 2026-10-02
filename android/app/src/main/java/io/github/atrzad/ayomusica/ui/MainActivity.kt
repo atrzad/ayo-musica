@@ -1,6 +1,8 @@
 package io.github.atrzad.ayomusica.ui
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.view.WindowManager
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -23,8 +25,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) handle(intent)
         setContent {
-            val theme by viewModel.theme.collectAsStateWithLifecycle()
-            val mode by viewModel.mode.collectAsStateWithLifecycle()
+            val theme by viewModel.prefs.theme.collectAsStateWithLifecycle()
+            val mode by viewModel.prefs.mode.collectAsStateWithLifecycle()
+            val useMode by viewModel.prefs.useMode.collectAsStateWithLifecycle()
+            // Car mode: the screen lies sideways and stays on.
+            LaunchedEffect(useMode) {
+                val car = useMode == UseMode.Car
+                requestedOrientation = if (car) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                if (car) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
             val dark = when (mode) {
                 Mode.Auto -> isSystemInDarkTheme()
                 Mode.Light -> false
@@ -35,7 +46,7 @@ class MainActivity : ComponentActivity() {
                 val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
                 enableEdgeToEdge(style, style)
             }
-            AyoTheme(theme, mode) { App(viewModel) }
+            AyoTheme(theme, mode) { App(viewModel, packageManager.getPackageInfo(packageName, 0).versionName ?: "") }
         }
     }
 

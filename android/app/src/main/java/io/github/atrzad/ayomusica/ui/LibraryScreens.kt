@@ -42,6 +42,15 @@ import androidx.compose.ui.unit.dp
 import io.github.atrzad.ayomusica.data.Album
 import io.github.atrzad.ayomusica.data.Artist
 import io.github.atrzad.ayomusica.data.AutoList
+import io.github.atrzad.ayomusica.data.Group
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.atrzad.ayomusica.data.Playlist
 import io.github.atrzad.ayomusica.data.Song
 
@@ -64,14 +73,24 @@ fun PlayButtons(songs: List<Song>, onPlay: (List<Song>, Int, Boolean) -> Unit) {
 }
 
 @Composable
-fun SongsScreen(songs: List<Song>, currentId: String?, searching: Boolean, actions: SongActions,
+fun SongsScreen(songs: List<Song>, currentId: String?, query: String, onQuery: (String) -> Unit, actions: SongActions,
                 onPlay: (List<Song>, Int, Boolean) -> Unit) {
-    if (songs.isEmpty()) {
-        EmptyState(if (searching) "Nada encontrado" else "Nenhuma música",
-            if (searching) "Tente outras palavras." else "Coloque músicas no celular e toque em atualizar.")
-        return
-    }
     LazyColumn(contentPadding = listPadding) {
+        item {
+            OutlinedTextField(query, onQuery, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                placeholder = { Text("Buscar músicas, artistas, álbuns") }, singleLine = true,
+                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Limpar") } },
+                shape = RoundedCornerShape(24.dp))
+        }
+        if (songs.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().height(320.dp)) {
+                    EmptyState(if (query.isNotBlank()) "Nada encontrado" else "Nenhuma música",
+                        if (query.isNotBlank()) "Tente outras palavras." else "Coloque músicas no celular e atualize em Configurações.")
+                }
+            }
+        }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 PlayButtons(songs, onPlay)
@@ -86,6 +105,39 @@ fun SongsScreen(songs: List<Song>, currentId: String?, searching: Boolean, actio
     }
 }
 
+/** Genres or folders: a name and how many songs. */
+@Composable
+fun GroupsScreen(groups: List<Group>, icon: ImageVector, onOpen: (Group) -> Unit) {
+    if (groups.isEmpty()) return EmptyState("Nada aqui", "As músicas aparecem conforme as tags e as pastas.")
+    LazyColumn(contentPadding = listPadding) {
+        items(groups, key = { it.name }) { group ->
+            Row(Modifier.fillMaxWidth().clickable { onOpen(group) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(group.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                    Text(if (group.songs.size == 1) "1 música" else "${group.songs.size} músicas",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GroupScreen(group: Group, currentId: String?, actions: SongActions, onPlay: (List<Song>, Int, Boolean) -> Unit) {
+    LazyColumn(contentPadding = listPadding) {
+        item {
+            Header(group.songs.firstOrNull(), group.name, "", if (group.songs.size == 1) "1 música" else "${group.songs.size} músicas")
+            PlayButtons(group.songs, onPlay)
+        }
+        itemsIndexed(group.songs, key = { _, song -> song.id }) { index, song ->
+            SongRow(song, song.id.toString() == currentId, actions, onClick = { onPlay(group.songs, index, false) })
+        }
+    }
+}
+
 @Composable
 fun AlbumsScreen(albums: List<Album>, onOpen: (Album) -> Unit) {
     if (albums.isEmpty()) return EmptyState("Nenhum álbum", "Os álbuns aparecem conforme as tags das músicas.")
@@ -94,7 +146,7 @@ fun AlbumsScreen(albums: List<Album>, onOpen: (Album) -> Unit) {
         items(albums, key = { it.key }) { album ->
             Column(Modifier.clickable { onOpen(album) }) {
                 val px = with(LocalDensity.current) { 180.dp.roundToPx() }
-                Cover(album.cover.uri, Modifier.fillMaxWidth().aspectRatio(1f), px, 12.dp)
+                Cover(album.cover.artUri, Modifier.fillMaxWidth().aspectRatio(1f), px, 12.dp)
                 Text(album.title, Modifier.padding(top = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleSmall)
                 Text(album.artist, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -111,7 +163,7 @@ fun ArtistsScreen(artists: List<Artist>, onOpen: (Artist) -> Unit) {
         items(artists, key = { it.name }) { artist ->
             Row(Modifier.fillMaxWidth().clickable { onOpen(artist) }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Cover(artist.songs.first().uri, 48.dp, corner = 24.dp)
+                Cover(artist.songs.first().artUri, 48.dp, corner = 24.dp)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(artist.name, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -179,7 +231,7 @@ fun PlaylistsScreen(playlists: List<Playlist>, count: (Playlist) -> Int, onOpen:
 @Composable
 private fun Header(cover: Song?, title: String, subtitle: String, detail: String, round: Boolean = false) {
     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (cover != null) Cover(cover.uri, 120.dp, corner = if (round) 60.dp else 12.dp)
+        if (cover != null) Cover(cover.artUri, 120.dp, corner = if (round) 60.dp else 12.dp)
         else Icon(if (round) Icons.Rounded.Person else Icons.AutoMirrored.Rounded.PlaylistPlay, null, Modifier.size(56.dp))
         Spacer(Modifier.width(16.dp))
         Column {

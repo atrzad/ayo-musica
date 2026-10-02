@@ -7,67 +7,57 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.atrzad.ayomusica.data.Song
+import io.github.atrzad.ayomusica.lyrics.Lyrics
 import io.github.atrzad.ayomusica.playback.PlayerHub
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
 
 private val audioPermission =
     if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
 
 @Composable
-fun App(viewModel: MusicViewModel) {
+fun App(viewModel: MusicViewModel, version: String) {
     val context = LocalContext.current
     var granted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, audioPermission) == PackageManager.PERMISSION_GRANTED)
@@ -88,51 +78,60 @@ fun App(viewModel: MusicViewModel) {
         }
         return
     }
-    Main(viewModel)
+    Main(viewModel, version)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Main(viewModel: MusicViewModel) {
+private fun Main(viewModel: MusicViewModel, version: String) {
+    val prefs = viewModel.prefs
     val ui by viewModel.player.ui.collectAsStateWithLifecycle()
     val routes by viewModel.routes.collectAsStateWithLifecycle()
+    val screen by viewModel.screen.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
+    val songs by viewModel.songs.collectAsStateWithLifecycle()
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val artists by viewModel.artists.collectAsStateWithLifecycle()
+    val genres by viewModel.genres.collectAsStateWithLifecycle()
+    val folders by viewModel.folders.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val sleep by viewModel.sleep.collectAsStateWithLifecycle()
-    val visualizer by viewModel.visualizer.collectAsStateWithLifecycle()
+    val analysis by viewModel.analysis.collectAsStateWithLifecycle()
+    val useMode by prefs.useMode.collectAsStateWithLifecycle()
+    val tabs by prefs.tabs.collectAsStateWithLifecycle()
+    val startTab by prefs.startTab.collectAsStateWithLifecycle()
+    val visualizer by prefs.visualizer.collectAsStateWithLifecycle()
+    val theme by prefs.theme.collectAsStateWithLifecycle()
+    val mode by prefs.mode.collectAsStateWithLifecycle()
+    val lyricsOnline by prefs.lyricsOnline.collectAsStateWithLifecycle()
     val sessionId by PlayerHub.audioSessionId.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var explainVisualizer by remember { mutableStateOf(false) }
-    var choosingTheme by remember { mutableStateOf(false) }
-    val theme by viewModel.theme.collectAsStateWithLifecycle()
-    val mode by viewModel.mode.collectAsStateWithLifecycle()
-    val askMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        viewModel.setVisualizer(ok)
-    }
-    fun toggleVisualizer() {
-        when {
-            visualizer -> viewModel.setVisualizer(false)
-            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED -> viewModel.setVisualizer(true)
-            else -> explainVisualizer = true
-        }
-    }
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    var searching by rememberSaveable { mutableStateOf(false) }
     var addingToPlaylist by remember { mutableStateOf<List<Song>?>(null) }
     var naming by remember { mutableStateOf<Pair<String, (String) -> Unit>?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     fun tell(text: String) = scope.launch { snackbar.showSnackbar(text) }
 
+    val askMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        prefs.setVisualizer(ok)
+    }
+    fun toggleVisualizer() {
+        when {
+            visualizer -> prefs.setVisualizer(false)
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED -> prefs.setVisualizer(true)
+            else -> explainVisualizer = true
+        }
+    }
+
     val route = routes.last()
+    val current = viewModel.songOf(ui.current)
     val currentId = ui.current?.mediaId
+    val favorite = current != null && stats[current.id]?.favorite == true
     val actions = SongActions(
         playNext = { viewModel.playNext(listOf(it)); tell("Vai tocar a seguir") },
         enqueue = { viewModel.enqueue(listOf(it)); tell("Adicionada à fila") },
@@ -143,164 +142,119 @@ private fun Main(viewModel: MusicViewModel) {
         isFavorite = { stats[it.id]?.favorite == true },
         toggleFavorite = { song ->
             viewModel.toggleFavorite(song)
-            tell(if (stats[song.id]?.favorite == true) "Tirada das favoritas" else "Adicionada às favoritas")
+            tell(if (stats[song.id]?.favorite == true) "Tirada das curtidas" else "Adicionada às curtidas")
         },
     )
     val play: (List<Song>, Int, Boolean) -> Unit = { list, start, shuffle -> viewModel.play(list, start, shuffle) }
 
-    BackHandler(enabled = searching || routes.size > 1) {
-        if (searching) {
-            searching = false
-            viewModel.query.value = ""
-        } else viewModel.back()
+    BackHandler(enabled = screen != Screen.Library || routes.size > 1) { viewModel.back() }
+
+    if (useMode == UseMode.Car) {
+        CarScreen(ui, current, viewModel.player, favorite, onFavorite = { current?.let(viewModel::toggleFavorite) },
+            onShuffleAll = { viewModel.play(songs, 0, true) }, onExit = { prefs.setUseMode(UseMode.Normal) })
+        return
     }
 
+    val home = route as? Route.Home
+    val tab = home?.tab ?: startTab
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    navigationIcon = {
-                        if (routes.size > 1) IconButton(onClick = { viewModel.back() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Voltar")
+                if (home != null) {
+                    HomeHeader(ui, current, viewModel.player, onSettings = { viewModel.open(Route.Settings) },
+                        onOpenPlayer = { viewModel.show(Screen.Player) })
+                } else {
+                    PageHeader(titleOf(route, playlists), onBack = { viewModel.back() }) {
+                        (route as? Route.PlaylistPage)?.let { page ->
+                            val playlist = playlists.firstOrNull { it.id == page.id }
+                            IconButton(onClick = {
+                                naming = "Renomear playlist" to { name: String -> viewModel.renamePlaylist(page.id, name) }
+                            }) { Icon(Icons.Rounded.Edit, "Renomear") }
+                            IconButton(onClick = {
+                                viewModel.deletePlaylist(page.id)
+                                tell("Playlist “${playlist?.name.orEmpty()}” excluída")
+                            }) { Icon(Icons.Rounded.Delete, "Excluir playlist") }
                         }
-                    },
-                    title = {
-                        if (searching) {
-                            TextField(query, { viewModel.query.value = it }, placeholder = { Text("Buscar músicas") },
-                                singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent))
-                        } else {
-                            Text(when (route) {
-                                is Route.Home -> "Ayo Música"
-                                is Route.AlbumPage -> "Álbum"
-                                is Route.ArtistPage -> "Artista"
-                                is Route.PlaylistPage -> "Playlist"
-                                is Route.AutoPage -> route.list.title
-                            })
-                        }
-                    },
-                    actions = {
-                        if (searching) {
-                            IconButton(onClick = { searching = false; viewModel.query.value = "" }) {
-                                Icon(Icons.Rounded.Close, "Fechar a busca")
-                            }
-                        } else {
-                            IconButton(onClick = { searching = true; viewModel.open(Route.Home(Tab.Songs)) }) {
-                                Icon(Icons.Rounded.Search, "Buscar")
-                            }
-                            (route as? Route.PlaylistPage)?.let { page ->
-                                val playlist = playlists.firstOrNull { it.id == page.id }
-                                IconButton(onClick = {
-                                    naming = "Renomear playlist" to { name: String -> viewModel.renamePlaylist(page.id, name) }
-                                }) { Icon(Icons.Rounded.Edit, "Renomear") }
-                                IconButton(onClick = {
-                                    viewModel.deletePlaylist(page.id)
-                                    tell("Playlist “${playlist?.name.orEmpty()}” excluída")
-                                }) { Icon(Icons.Rounded.Delete, "Excluir playlist") }
-                            }
-                            if (route is Route.Home) {
-                                IconButton(onClick = { choosingTheme = true }) { Icon(Icons.Rounded.Palette, "Tema") }
-                                IconButton(onClick = viewModel::refresh) {
-                                    Icon(Icons.Rounded.Refresh, "Atualizar biblioteca")
-                                }
-                            }
-                        }
-                    },
-                )
-            },
-            bottomBar = {
-                Column {
-                    MiniPlayer(ui, viewModel.player) { expanded = true }
-                    NavigationBar {
-                        val selected = (routes.first() as? Route.Home)?.tab
-                        Tab.entries.forEach { tab ->
-                            NavigationBarItem(
-                                selected = tab == selected && routes.size == 1,
-                                onClick = { viewModel.open(Route.Home(tab)) },
-                                icon = {
-                                    Icon(when (tab) {
-                                        Tab.Songs -> Icons.Rounded.MusicNote
-                                        Tab.Albums -> Icons.Rounded.Album
-                                        Tab.Artists -> Icons.Rounded.Person
-                                        Tab.Playlists -> Icons.AutoMirrored.Rounded.PlaylistPlay
-                                    }, null)
-                                },
-                                label = { Text(tab.title) },
-                            )
+                        if (route == Route.Settings) IconButton(onClick = viewModel::refresh) {
+                            Icon(Icons.Rounded.Refresh, "Atualizar biblioteca")
                         }
                     }
+                }
+            },
+            bottomBar = {
+                if (home != null && useMode == UseMode.Simple) {
+                    FixedTabs(tabs, tab) { viewModel.open(Route.Home(it)) }
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->
-            Column(Modifier.padding(padding)) {
+            Column(Modifier.padding(padding).padding(bottom = if (home != null && useMode == UseMode.Normal) 84.dp else 0.dp)) {
                 if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 when (route) {
                     is Route.Home -> when (route.tab) {
-                        Tab.Songs -> SongsScreen(results, currentId, query.isNotBlank(), actions, play)
+                        Tab.Songs -> SongsScreen(results, currentId, query, { viewModel.query.value = it }, actions, play)
                         Tab.Albums -> AlbumsScreen(albums) { viewModel.open(Route.AlbumPage(it.key)) }
                         Tab.Artists -> ArtistsScreen(artists) { viewModel.open(Route.ArtistPage(it.name)) }
+                        Tab.Genres -> GroupsScreen(genres, Icons.Rounded.Category) { viewModel.open(Route.GenrePage(it.name)) }
+                        Tab.Folders -> GroupsScreen(folders, Icons.Rounded.Folder) { viewModel.open(Route.FolderPage(it.name)) }
                         Tab.Playlists -> PlaylistsScreen(playlists, { viewModel.playlistSongs(it).size },
                             onOpen = { viewModel.open(Route.PlaylistPage(it.id)) },
                             onCreate = { naming = "Nova playlist" to { name: String -> viewModel.createPlaylist(name) } },
-                            autoCount = { list -> list.songs(results, stats).size },
+                            autoCount = { list -> list.songs(songs, stats).size },
                             onAuto = { viewModel.open(Route.AutoPage(it)) })
                     }
-                    is Route.AlbumPage -> albums.firstOrNull { it.key == route.key }
-                        ?.let { AlbumScreen(it, currentId, actions, play) }
-                    is Route.ArtistPage -> artists.firstOrNull { it.name == route.name }
-                        ?.let { ArtistScreen(it, currentId, actions, play) }
+                    is Route.AlbumPage -> albums.firstOrNull { it.key == route.key }?.let { AlbumScreen(it, currentId, actions, play) }
+                    is Route.ArtistPage -> artists.firstOrNull { it.name == route.name }?.let { ArtistScreen(it, currentId, actions, play) }
+                    is Route.GenrePage -> genres.firstOrNull { it.name == route.name }?.let { GroupScreen(it, currentId, actions, play) }
+                    is Route.FolderPage -> folders.firstOrNull { it.name == route.name }?.let { GroupScreen(it, currentId, actions, play) }
                     is Route.PlaylistPage -> playlists.firstOrNull { it.id == route.id }
                         ?.let { PlaylistScreen(it, viewModel.playlistSongs(it), currentId, actions, play) }
-                    is Route.AutoPage -> AutoListScreen(route.list, route.list.songs(viewModel.songs.value, stats),
-                        currentId, actions, play)
+                    is Route.AutoPage -> AutoListScreen(route.list, route.list.songs(songs, stats), currentId, actions, play)
+                    Route.Settings -> SettingsScreen({ viewModel.open(Route.SettingsOf(it)) }, version)
+                    is Route.SettingsOf -> when (route.page) {
+                        SettingsPage.Analyzer -> AnalyzerPage(analysis, viewModel.needingWork().size, songs.size,
+                            viewModel.correctedCount(), viewModel::analyze, viewModel::stopAnalysis, viewModel::accept,
+                            viewModel::undo, viewModel::undoAll)
+                        SettingsPage.Equalizer -> EqualizerPage()
+                        SettingsPage.UseModes -> UseModePage(useMode, prefs::setUseMode)
+                        SettingsPage.Themes -> ThemeContent(theme, mode, MaterialTheme.colorScheme.background.luminance() < 0.3f,
+                            prefs::setTheme, prefs::setMode)
+                        SettingsPage.HomeTabs -> HomeTabsPage(tabs, startTab, prefs::setTabs, prefs::setStartTab)
+                        SettingsPage.LyricsSettings -> LyricsSettingsPage(lyricsOnline, prefs::setLyricsOnline)
+                    }
                 }
             }
         }
-        AnimatedVisibility(expanded && ui.current != null, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
-            BackHandler { expanded = false }
-            val current = viewModel.songOf(ui.current)
-            ExpandedPlayer(
-                ui, viewModel.player, lyrics,
-                favorite = current != null && stats[current.id]?.favorite == true,
-                onFavorite = { current?.let(viewModel::toggleFavorite) },
-                visualizer = visualizer,
-                onVisualizer = ::toggleVisualizer,
-                sessionId = sessionId,
-                sleep = sleep,
-                onSleep = viewModel::sleepAfter,
-                onCollapse = { expanded = false },
+        if (home != null && useMode == UseMode.Normal) {
+            RadialTabs(tabs, tab, { viewModel.open(Route.Home(it)) },
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+        }
+        AnimatedVisibility(screen != Screen.Library && ui.current != null,
+            enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+            PlayerScreen(ui, current, viewModel.player, favorite, onFavorite = { current?.let(viewModel::toggleFavorite) },
+                visualizer = visualizer, onVisualizer = ::toggleVisualizer, sessionId = sessionId, sleep = sleep,
+                onSleep = viewModel::sleepAfter, onBack = { viewModel.show(Screen.Library) },
+                onLyrics = { viewModel.show(Screen.Lyrics) },
                 onArtist = {
-                    viewModel.songOf(ui.current)?.let { viewModel.open(Route.ArtistPage(it.shownArtist)) }
-                    expanded = false
-                },
-                onShiftLyrics = viewModel::shiftLyrics,
-                onRetryLyrics = { viewModel.loadLyrics(force = true) },
-            )
+                    current?.let { viewModel.open(Route.ArtistPage(it.shownArtist)) }
+                    viewModel.show(Screen.Library)
+                })
+        }
+        AnimatedVisibility(screen == Screen.Lyrics || screen == Screen.Sync,
+            enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
+            LyricsScreen(ui, current, viewModel.player, lyrics, onBack = { viewModel.show(Screen.Player) },
+                onShift = viewModel::shiftLyrics, onRetry = { viewModel.loadLyrics(force = true) },
+                onSearch = viewModel::searchLyrics, onChoose = { viewModel.chooseLyrics(it); tell("Letra escolhida") },
+                onSync = { viewModel.show(Screen.Sync) })
+        }
+        val toSync = (lyrics as? LyricsUi.Shown)?.lyrics
+        if (screen == Screen.Sync && toSync != null) {
+            SyncEditor(ui, current, toSync, viewModel.player,
+                onDone = { lrc -> viewModel.saveSynced(lrc, "manual"); viewModel.show(Screen.Lyrics); tell("Letra sincronizada salva") },
+                onCancel = { viewModel.show(Screen.Lyrics) })
         }
     }
 
-    addingToPlaylist?.let { songs ->
-        AddToPlaylistDialog(
-            playlists,
-            onPick = { playlist ->
-                viewModel.addToPlaylist(playlist.id, songs)
-                addingToPlaylist = null
-                tell("Adicionada a “${playlist.name}”")
-            },
-            onCreate = { name ->
-                viewModel.createPlaylist(name, songs)
-                addingToPlaylist = null
-                tell("Playlist “$name” criada")
-            },
-            onDismiss = { addingToPlaylist = null },
-        )
-    }
-    if (choosingTheme) {
-        ThemeSheet(theme, mode, MaterialTheme.colorScheme.background.luminance() < 0.3f,
-            onTheme = viewModel::setTheme, onMode = viewModel::setMode, onDismiss = { choosingTheme = false })
-    }
     if (explainVisualizer) {
         AlertDialog(
             onDismissRequest = { explainVisualizer = false },
@@ -317,10 +271,38 @@ private fun Main(viewModel: MusicViewModel) {
             dismissButton = { TextButton(onClick = { explainVisualizer = false }) { Text("Agora não") } },
         )
     }
+    addingToPlaylist?.let { list ->
+        AddToPlaylistDialog(
+            playlists,
+            onPick = { playlist ->
+                viewModel.addToPlaylist(playlist.id, list)
+                addingToPlaylist = null
+                tell("Adicionada a “${playlist.name}”")
+            },
+            onCreate = { name ->
+                viewModel.createPlaylist(name, list)
+                addingToPlaylist = null
+                tell("Playlist “$name” criada")
+            },
+            onDismiss = { addingToPlaylist = null },
+        )
+    }
     naming?.let { (title, done) ->
         val initial = (route as? Route.PlaylistPage)?.let { page -> playlists.firstOrNull { it.id == page.id }?.name }
         NameDialog(title, if (title.startsWith("Renomear")) initial.orEmpty() else "",
             if (title.startsWith("Renomear")) "Renomear" else "Criar",
             onDone = { done(it); naming = null }, onDismiss = { naming = null })
     }
+}
+
+private fun titleOf(route: Route, playlists: List<io.github.atrzad.ayomusica.data.Playlist>): String = when (route) {
+    is Route.Home -> route.tab.title
+    is Route.AlbumPage -> "Álbum"
+    is Route.ArtistPage -> "Artista"
+    is Route.GenrePage -> "Gênero"
+    is Route.FolderPage -> "Pasta"
+    is Route.PlaylistPage -> playlists.firstOrNull { it.id == route.id }?.name ?: "Playlist"
+    is Route.AutoPage -> route.list.title
+    Route.Settings -> "Configurações"
+    is Route.SettingsOf -> route.page.title
 }

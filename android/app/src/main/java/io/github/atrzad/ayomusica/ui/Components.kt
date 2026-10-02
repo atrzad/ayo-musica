@@ -117,7 +117,7 @@ fun SongRow(
         when {
             number != null -> Text(if (number > 0) "$number" else "", Modifier.width(32.dp),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            showCover -> Cover(song.uri, 48.dp)
+            showCover -> Cover(song.artUri, 48.dp)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
