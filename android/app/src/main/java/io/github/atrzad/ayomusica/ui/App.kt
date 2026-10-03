@@ -100,6 +100,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val sleep by viewModel.sleep.collectAsStateWithLifecycle()
     val analysis by viewModel.analysis.collectAsStateWithLifecycle()
+    val voice by viewModel.voice.collectAsStateWithLifecycle()
     val useMode by prefs.useMode.collectAsStateWithLifecycle()
     val tabs by prefs.tabs.collectAsStateWithLifecycle()
     val startTab by prefs.startTab.collectAsStateWithLifecycle()
@@ -245,7 +246,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             LyricsScreen(ui, current, viewModel.player, lyrics, onBack = { viewModel.show(Screen.Player) },
                 onShift = viewModel::shiftLyrics, onRetry = { viewModel.loadLyrics(force = true) },
                 onSearch = viewModel::searchLyrics, onChoose = { viewModel.chooseLyrics(it); tell("Letra escolhida") },
-                onSync = { viewModel.show(Screen.Sync) })
+                onSync = { viewModel.show(Screen.Sync) }, onVoiceSync = viewModel::syncByVoice)
         }
         val toSync = (lyrics as? LyricsUi.Shown)?.lyrics
         if (screen == Screen.Sync && toSync != null) {
@@ -255,6 +256,30 @@ private fun Main(viewModel: MusicViewModel, version: String) {
         }
     }
 
+    voice?.let { state ->
+        AlertDialog(
+            onDismissRequest = { if (!state.running) viewModel.closeVoice() },
+            title = { Text("Sincronizar pela voz") },
+            text = {
+                Column {
+                    Text(state.text)
+                    if (state.running) {
+                        if (state.progress >= 0f) {
+                            LinearProgressIndicator(progress = { state.progress }, Modifier.fillMaxWidth().padding(top = 16.dp))
+                        } else {
+                            LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 16.dp))
+                        }
+                        Text("Roda no celular, sem enviar nada. Pode levar um ou dois minutos.", Modifier.padding(top = 12.dp),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = {
+                if (state.running) TextButton(onClick = viewModel::cancelVoice) { Text("Cancelar") }
+                else TextButton(onClick = viewModel::closeVoice) { Text("OK") }
+            },
+        )
+    }
     if (explainVisualizer) {
         AlertDialog(
             onDismissRequest = { explainVisualizer = false },

@@ -1,0 +1,6 @@
+/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-src/CMakeLists.txt
+/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-src/ggml/CMakeLists.txt
+/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-src/ggml/src/CMakeLists.txt
+/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-src/ggml/src/ggml-cpu/CMakeLists.txt
+/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-src/src/CMakeLists.txt
+/home/ayo/Projects/ayo-musica/android/app/src/main/cpp/CMakeLists.txt

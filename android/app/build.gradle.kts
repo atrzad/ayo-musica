@@ -12,12 +12,32 @@ android {
     namespace = "io.github.atrzad.ayomusica"
     compileSdk = 37
 
+    ndkVersion = "29.0.14206865"
+
     defaultConfig {
         applicationId = "io.github.atrzad.ayomusica"
         minSdk = 26
         targetSdk = 37
         versionCode = (System.getenv("AYO_VERSION_CODE") ?: "1").toInt()
-        versionName = "0.4.0"
+        versionName = "0.5.0"
+        ndk {
+            // Phones (arm64) and the emulator (x86_64).
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+        externalNativeBuild {
+            cmake {
+                // Always optimized: an unoptimized whisper is tens of times slower, even in test builds.
+                arguments += listOf("-DANDROID_STL=c++_static", "-DCMAKE_BUILD_TYPE=Release")
+                cppFlags += "-std=c++17"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.1.2"
+        }
     }
 
     signingConfigs {

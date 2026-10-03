@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "_deps/whisper-build/ggml/src/ggml-cpu",
+		"source" : "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/ggml/src/ggml-cpu"
+	}
+}

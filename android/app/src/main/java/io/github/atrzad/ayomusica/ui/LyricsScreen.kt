@@ -87,8 +87,10 @@ fun LyricsScreen(
     onSearch: suspend (String) -> Result<List<LrcLibResult>>,
     onChoose: (LrcLibResult) -> Unit,
     onSync: () -> Unit,
+    onVoiceSync: () -> Unit,
 ) {
     var searching by remember { mutableStateOf(false) }
+    var syncMenu by remember { mutableStateOf(false) }
     val position = rememberPosition(player, ui, 100)
     val threshold = with(LocalDensity.current) { 60.dp.toPx() }
     val shown = (lyrics as? LyricsUi.Shown)?.lyrics
@@ -123,17 +125,34 @@ fun LyricsScreen(
                 LyricsPanel(lyrics, position, onSeek = player::seekTo, onRetry = onRetry)
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 AssistChip(onClick = { searching = true }, label = { Text("Buscar letra") },
                     leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(18.dp)) })
                 if (shown != null && shown.lines.any { it.text.isNotBlank() }) {
-                    AssistChip(onClick = onSync, label = { Text(if (shown.synced) "Sincronizar de novo" else "Sincronizar") },
-                        leadingIcon = { Icon(Icons.Rounded.Sync, null, Modifier.size(18.dp)) })
+                    Box {
+                        AssistChip(onClick = { syncMenu = true },
+                            label = { Text(if (shown.synced) "Sincronizar de novo" else "Sincronizar") },
+                            leadingIcon = { Icon(Icons.Rounded.Sync, null, Modifier.size(18.dp)) })
+                        androidx.compose.material3.DropdownMenu(syncMenu, { syncMenu = false }) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("Pela voz (automático)") },
+                                onClick = { syncMenu = false; onVoiceSync() })
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("Tocando (marcar cada linha)") },
+                                onClick = { syncMenu = false; onSync() })
+                        }
+                    }
                 }
-                Spacer(Modifier.weight(1f))
-                if (shown != null && shown.synced) {
-                    TextButton(onClick = { onShift(-500) }) { Text("−0,5") }
-                    TextButton(onClick = { onShift(500) }) { Text("+0,5") }
+            }
+            if (shown != null && shown.synced) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tempo da letra", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { onShift(500) }) { Text("Mais cedo") }
+                    Text(offsetText(shown.offsetMs), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { onShift(-500) }) { Text("Mais tarde") }
                 }
             }
         }

@@ -1,0 +1,220 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10.0"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "_deps/whisper-build",
+					"childIndexes" : 
+					[
+						2,
+						5
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-_deps.whisper-build-Debug-ce1bfeb245854c2d877b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src"
+				},
+				{
+					"build" : "_deps/whisper-build/ggml",
+					"childIndexes" : 
+					[
+						3
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-_deps.whisper-build.ggml-Debug-aabf8a9d777c7aa90abe.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.14"
+					},
+					"parentIndex" : 1,
+					"projectIndex" : 2,
+					"source" : "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/ggml"
+				},
+				{
+					"build" : "_deps/whisper-build/ggml/src",
+					"childIndexes" : 
+					[
+						4
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-_deps.whisper-build.ggml.src-Debug-175856488622b1ce8d61.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.14"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 2,
+					"source" : "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/ggml/src",
+					"targetIndexes" : 
+					[
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"build" : "_deps/whisper-build/ggml/src/ggml-cpu",
+					"jsonFile" : "directory-_deps.whisper-build.ggml.src.ggml-cpu-Debug-dd9042d9f1e9f9671b1a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.14"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 2,
+					"source" : "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/ggml/src/ggml-cpu"
+				},
+				{
+					"build" : "_deps/whisper-build/src",
+					"jsonFile" : "directory-_deps.whisper-build.src-Debug-26ef5a5a2f2b472cadde.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 1,
+					"projectIndex" : 1,
+					"source" : "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/src",
+					"targetIndexes" : 
+					[
+						4,
+						5
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1
+					],
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "ayowhisper",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"childIndexes" : 
+					[
+						2
+					],
+					"directoryIndexes" : 
+					[
+						1,
+						5
+					],
+					"name" : "whisper.cpp",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						4,
+						5
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						2,
+						3,
+						4
+					],
+					"name" : "ggml",
+					"parentIndex" : 1,
+					"targetIndexes" : 
+					[
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ayowhisper::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ayowhisper-Debug-1bba0db55c7e40cdcfac.json",
+					"name" : "ayowhisper",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "ggml::@adb943a8c98c89f2306b",
+					"jsonFile" : "target-ggml-Debug-6cabeb1df5134fde4991.json",
+					"name" : "ggml",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "ggml-base::@adb943a8c98c89f2306b",
+					"jsonFile" : "target-ggml-base-Debug-f226585a22f9d257b2e4.json",
+					"name" : "ggml-base",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "ggml-cpu::@adb943a8c98c89f2306b",
+					"jsonFile" : "target-ggml-cpu-Debug-4cf3ef65c0a0f2164d16.json",
+					"name" : "ggml-cpu",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "parakeet::@042bb418fb5bf6c59093",
+					"jsonFile" : "target-parakeet-Debug-259584bbeae95267205d.json",
+					"name" : "parakeet",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "whisper::@042bb418fb5bf6c59093",
+					"jsonFile" : "target-whisper-Debug-2affb9fc955038f412f0.json",
+					"name" : "whisper",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64",
+		"source" : "/home/ayo/Projects/ayo-musica/android/app/src/main/cpp"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

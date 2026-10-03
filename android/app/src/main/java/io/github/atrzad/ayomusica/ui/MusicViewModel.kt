@@ -72,6 +72,9 @@ sealed interface Route {
 /** What covers the library: nothing, the full player, the lyrics, or the sync editor. */
 enum class Screen { Library, Player, Lyrics, Sync }
 
+/** Syncing by voice: what it is doing (or the result), with progress 0..1 (−1: unknown). */
+data class VoiceState(val text: String, val progress: Float = -1f, val running: Boolean = true)
+
 data class AnalysisItem(val song: Song, val verdict: Verdict, val proposal: Proposal?, val applied: Boolean = false)
 
 data class AnalysisState(
@@ -106,6 +109,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val stats: StateFlow<Map<Long, SongStats>> = statsStore.all
     val sleep: StateFlow<SleepTimer.Mode> = SleepTimer.mode
     val analysis = MutableStateFlow(AnalysisState())
+    val voice = MutableStateFlow<VoiceState?>(null)
+    private val voiceSync by lazy { io.github.atrzad.ayomusica.voice.VoiceSync(application) }
+    private var voiceJob: Job? = null
 
     val albums: StateFlow<List<Album>> = songs.map(Grouping::albums).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val artists: StateFlow<List<Artist>> = songs.map(Grouping::artists).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -245,6 +251,56 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             lyricsRepository.save(song, lrc, "", source)
             loadLyrics()
         }
+    }
+
+    /** Listen to the song on the phone (whisper.cpp) and give each line of the lyrics its time. */
+    fun syncByVoice() {
+        val song = songOf(player.ui.value.current) ?: return
+        val shown = (lyrics.value as? LyricsUi.Shown)?.lyrics ?: return
+        val plain = shown.copy(lines = shown.lines.map { Lyrics.Line(null, it.text) }, synced = false)
+        voiceJob?.cancel()
+        if (!voiceSync.supported) {
+            voice.value = VoiceState("O processador deste celular não tem as instruções que a sincronização pela voz usa. " +
+                "Use Sincronizar tocando, que marca cada linha na hora.", running = false)
+            return
+        }
+        voiceJob = viewModelScope.launch {
+            try {
+                if (!voiceSync.hasModel) {
+                    voice.value = VoiceState("Baixando o modelo de voz (60 MB, só desta vez)…", 0f)
+                    voiceSync.downloadModel { fraction ->
+                        voice.value = VoiceState("Baixando o modelo de voz (60 MB, só desta vez)…", fraction)
+                    }
+                }
+                val result = voiceSync.sync(song, plain) { stage, fraction ->
+                    voice.value = VoiceState("${stage.text}…", fraction)
+                }
+                if (result == null) {
+                    voice.value = VoiceState("Não deu para entender a voz o bastante para sincronizar esta música. " +
+                        "Tente Sincronizar tocando.", running = false)
+                    return@launch
+                }
+                val (synced, share) = result
+                lyricsRepository.save(song, io.github.atrzad.ayomusica.lyrics.LrcWriter.write(synced, song.title, song.artist), "", "voz")
+                loadLyrics()
+                voice.value = VoiceState("Letra sincronizada pela voz (${(share * 100).toInt()}% das palavras reconhecidas). " +
+                    "Se alguma linha ficar adiantada ou atrasada, use −0,5 / +0,5.", running = false)
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                voice.value = VoiceState(if (error.message == "Cancelado") "Sincronização cancelada."
+                    else "Não deu para sincronizar: ${error.message ?: "erro"}", running = false)
+            }
+        }
+    }
+
+    fun cancelVoice() {
+        voiceSync.cancel()
+        voiceJob?.cancel()
+        voice.value = null
+    }
+
+    fun closeVoice() {
+        voice.value = null
     }
 
     // ── favorites (Curtidas), automatic lists, speed and sleep ──────────

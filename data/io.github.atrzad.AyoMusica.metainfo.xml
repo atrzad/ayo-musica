@@ -34,6 +34,12 @@
     <color type="primary" scheme_preference="dark">#18181c</color>
   </branding>
   <releases>
+    <release version="0.5.0" date="2026-10-02">
+      <description>
+        <p>Temas baseados nos temas do kitty (Catppuccin, Gruvbox, Tokyo Night, Solarized, One Dark, Rosé Pine,
+          Everforest, Kanagawa) e o tema Pixel.</p>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-09-30">
       <description>
         <p>Dez temas de cores novos, com versão clara e escura, e um tema que segue o papel de parede (wallust).</p>

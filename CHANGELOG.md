@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0 — Novo app Android e letras que funcionam
+
+- **Android redesenhado** a partir do esboço: título AYO PLAYER (abre as Configurações), a música tocando no
+  canto (arraste ←/→ para voltar/avançar), botão redondo que troca de aba segurando e arrastando (barra fixa no
+  modo simplificado), abas Gêneros e Pastas e busca dentro da lista.
+- **Tocando agora** novo: voltar, curtir (Curtidas), capa, aleatório com animação das setas, repetir (1 toque:
+  lista/álbum, 2 toques: a música) e gestos: ← reinicia (duas vezes volta uma música), → avança, ↓ abre a letra.
+- **Letras**: a busca automática entende tags de downloads do YouTube (em 40 músicas reais, de 18 para 30 com
+  letra sincronizada), busca manual no LRCLIB, **sincronizar tocando** (toque a cada linha) e **sincronizar pela
+  voz no celular** com o whisper.cpp (modelo de 60 MB baixado uma vez; nada é enviado).
+- **Configurações**: Analisador de músicas (Deezer: título, artista, álbum, ano, gênero e capa oficial, guardados
+  no app com Desfazer), Equalizador, Modo (normal, **carro** com tela deitada e botões gigantes, simplificado),
+  Temas e Página inicial (quais abas aparecem, ordem e aba inicial).
+- **Temas do kitty** (PC e Android): Catppuccin, Gruvbox, Tokyo Night, Solarized, One Dark, Rosé Pine, Everforest
+  e Kanagawa, e o tema **Pixel** (fonte pixelada e cantos retos no celular).
+
 ## 0.4.0 — Temas (PC e Android)
 
 - **10 temas novos**, cada um com versão clara e escura: Nórdico, Oceano, Floresta, Vinho, Âmbar, Lavanda, Rosa,

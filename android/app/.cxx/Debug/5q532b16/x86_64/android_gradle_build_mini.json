@@ -1,0 +1,62 @@
+{
+  "buildFiles": [
+    "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/CMakeLists.txt",
+    "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/ggml/CMakeLists.txt",
+    "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/ggml/src/CMakeLists.txt",
+    "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/ggml/src/ggml-cpu/CMakeLists.txt",
+    "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-src/src/CMakeLists.txt",
+    "/home/ayo/Projects/ayo-musica/android/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/ayo/Android/Sdk/cmake/4.1.2/bin/ninja",
+      "-C",
+      "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/ayo/Android/Sdk/cmake/4.1.2/bin/ninja",
+    "-C",
+    "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "ggml-base::@adb943a8c98c89f2306b": {
+      "artifactName": "ggml-base",
+      "abi": "x86_64",
+      "output": "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-build/ggml/src/libggml-base.a",
+      "runtimeFiles": []
+    },
+    "whisper::@042bb418fb5bf6c59093": {
+      "artifactName": "whisper",
+      "abi": "x86_64",
+      "output": "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-build/src/libwhisper.a",
+      "runtimeFiles": []
+    },
+    "ggml-cpu::@adb943a8c98c89f2306b": {
+      "artifactName": "ggml-cpu",
+      "abi": "x86_64",
+      "output": "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-build/ggml/src/libggml-cpu.a",
+      "runtimeFiles": []
+    },
+    "ggml::@adb943a8c98c89f2306b": {
+      "artifactName": "ggml",
+      "abi": "x86_64",
+      "output": "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-build/ggml/src/libggml.a",
+      "runtimeFiles": []
+    },
+    "parakeet::@042bb418fb5bf6c59093": {
+      "artifactName": "parakeet",
+      "abi": "x86_64",
+      "output": "/home/ayo/Projects/ayo-musica/android/app/.cxx/Debug/5q532b16/x86_64/_deps/whisper-build/src/libparakeet.a",
+      "runtimeFiles": []
+    },
+    "ayowhisper::@6890427a1f51a3e7e1df": {
+      "artifactName": "ayowhisper",
+      "abi": "x86_64",
+      "output": "/home/ayo/Projects/ayo-musica/android/app/build/intermediates/cxx/Debug/5q532b16/obj/x86_64/libayowhisper.so",
+      "runtimeFiles": []
+    }
+  }
+}

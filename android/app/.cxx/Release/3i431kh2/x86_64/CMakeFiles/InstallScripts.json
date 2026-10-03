@@ -1,0 +1,12 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/cmake_install.cmake",
+		"/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-build/cmake_install.cmake",
+		"/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-build/ggml/cmake_install.cmake",
+		"/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-build/ggml/src/cmake_install.cmake",
+		"/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-build/ggml/src/ggml-cpu/cmake_install.cmake",
+		"/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-build/src/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

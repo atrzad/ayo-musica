@@ -1,0 +1,21 @@
+# ninja log v6
+1	24	1790989056723503504	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-mkdir	3a5f8b25d9d8e2ed
+1	24	1790989056723503504	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-mkdir	3a5f8b25d9d8e2ed
+25	2992	1790989059686854709	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-download	254944157a2902d2
+25	2992	1790989059686854709	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-download	254944157a2902d2
+2992	3004	1790989059700188123	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-update	63a23bcc1d69680a
+2992	3004	1790989059700188123	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-update	63a23bcc1d69680a
+3004	3016	1790989059713521536	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-patch	1a29ffdc1e8f9715
+3004	3016	1790989059713521536	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-patch	1a29ffdc1e8f9715
+3016	3039	1790989059733521657	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-configure	a95eb941f09fb914
+3016	3039	1790989059733521657	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-configure	a95eb941f09fb914
+3039	3059	1790989059756855131	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-build	1f6c0e24c13601ff
+3039	3059	1790989059756855131	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-build	1f6c0e24c13601ff
+3059	3072	1790989059770188545	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-install	95285514fb0ac9a7
+3059	3072	1790989059770188545	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-install	95285514fb0ac9a7
+3072	3094	1790989059793522019	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-test	9b1a1cb84acd48d6
+3072	3094	1790989059793522019	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-test	9b1a1cb84acd48d6
+3094	3120	1790989059820188846	CMakeFiles/whisper-populate-complete	f1a989b5789de798
+3094	3120	1790989059820188846	whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-done	f1a989b5789de798
+3094	3120	1790989059820188846	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/CMakeFiles/whisper-populate-complete	f1a989b5789de798
+3094	3120	1790989059820188846	/home/ayo/Projects/ayo-musica/android/app/.cxx/Release/3i431kh2/x86_64/_deps/whisper-subbuild/whisper-populate-prefix/src/whisper-populate-stamp/whisper-populate-done	f1a989b5789de798

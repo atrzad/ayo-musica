@@ -96,7 +96,7 @@ fun RadialTabs(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit, modifier:
                         Icon(tab.icon(), tab.title,
                             tint = if (hot) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                     }
-                    Text(tab.title, style = MaterialTheme.typography.labelMedium,
+                    Text(tab.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (hot) FontWeight.Bold else FontWeight.Normal)
                 }
             }

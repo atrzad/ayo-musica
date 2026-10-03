@@ -70,3 +70,25 @@ class FinderTest {
         assertEquals(listOf(3L, 2L, 1L), finder.search("a", song("A", "B")).map { it.id })
     }
 }
+
+class AlignTest {
+    @org.junit.Test
+    fun plainLyricsGetTimesFromHeardWords() {
+        val plain = io.github.atrzad.ayomusica.lyrics.Lyrics.parse("Hoje eu acordei assim\nMe sentindo obsoleto\n\nFeito um CD na estante")
+        val tokens = listOf("26700\t27000\t Hoje", "27000\t27200\t eu", "27200\t27600\t acor", "27600\t28000\tdei",
+            "28000\t29000\t assim", "29100\t29400\t uh", "29800\t30000\t me", "30000\t30500\t sentido",
+            "30500\t31500\t obsoleto", "33000\t33300\t feito", "33300\t33400\t um", "33400\t33900\t CD").joinToString("\n")
+        val words = io.github.atrzad.ayomusica.lyrics.Align.words(tokens)
+        org.junit.Assert.assertEquals("acordei", words[2].text)
+        val (synced, share) = io.github.atrzad.ayomusica.lyrics.Align.align(plain, words)!!
+        org.junit.Assert.assertEquals(listOf(26700L, 29800L, 33000L), synced.lines.map { it.timeMs })
+        org.junit.Assert.assertTrue(share > 0.7)
+    }
+
+    @org.junit.Test
+    fun languageGuess() {
+        org.junit.Assert.assertEquals("pt", io.github.atrzad.ayomusica.lyrics.Align.language(
+            "eu não sei o que você quer de mim meu amor, tudo que tem pra gente é isso"))
+        org.junit.Assert.assertEquals("auto", io.github.atrzad.ayomusica.lyrics.Align.language("oi"))
+    }
+}
