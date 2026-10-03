@@ -58,16 +58,16 @@ private data class Step(val title: String, val text: String, val icon: ImageVect
 private val STEPS = listOf(
     Step("Tela inicial",
         "Toque em AYO PLAYER, no alto, para abrir as Configurações. À direita fica a música que está tocando: " +
-            "toque nela para abrir o Tocando agora, ou arraste para o lado para voltar ou avançar.",
+            "toque nela para abrir o Tocando agora, ou arraste para a esquerda para avançar e para a direita para voltar.",
         Icons.Rounded.MusicNote, listOf(Motion.Tap, Motion.Right)),
     Step("Trocar de aba",
         "Segure o botão redondo embaixo e arraste na direção da aba: Músicas, Playlists, Álbuns, Artistas… " +
             "A aba apontada cresce; solte para abrir. Um toque simples mostra as abas para tocar.",
         Icons.Rounded.TouchApp, listOf(Motion.Fan)),
     Step("Gestos no Tocando agora",
-        "Deslize para a direita (uma vez): próxima música.\nDeslize para a esquerda (uma vez): volta ao começo " +
+        "Deslize para a esquerda (uma vez): próxima música.\nDeslize para a direita (uma vez): volta ao começo " +
             "da música; duas vezes seguidas: volta uma música.\nDeslize para baixo: abre a letra.",
-        Icons.Rounded.MusicNote, listOf(Motion.Right, Motion.Left, Motion.Down)),
+        Icons.Rounded.MusicNote, listOf(Motion.Left, Motion.Right, Motion.Down)),
     Step("Aleatório, repetir e curtir",
         "As setas do aleatório se cruzam quando ele está ligado. Repetir: um toque repete a lista ou o álbum, " +
             "dois toques repetem só a música. O coração guarda a música em Curtidas.",

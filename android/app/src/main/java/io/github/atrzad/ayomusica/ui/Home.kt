@@ -80,7 +80,7 @@ fun NowPlayingChip(ui: PlayerUi, song: Song?, player: PlayerConnection, onOpen: 
                 detectHorizontalDragGestures(
                     onDragStart = { total = 0f },
                     onDragEnd = {
-                        if (total > threshold) player.next() else if (total < -threshold) player.back()
+                        if (total < -threshold) player.next() else if (total > threshold) player.back()  // ← next, → back
                         scope.launch { slide.animateTo(0f) }
                     },
                 ) { change, amount ->

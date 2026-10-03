@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.6 — Gestos invertidos
+
+- Arrastos invertidos, no Tocando agora, no cartão da tela inicial e no modo carro: um para a esquerda passa a
+  música; um para a direita volta ao começo dela; dois seguidos para a direita voltam uma música.
+
 ## 0.5.5 — Gestos certos e modo simplificado com barra
 
 - Gestos do Tocando agora: um arrasto para a direita avança; um para a esquerda volta ao começo da música; dois

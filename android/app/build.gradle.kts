@@ -19,7 +19,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = (System.getenv("AYO_VERSION_CODE") ?: "1").toInt()
-        versionName = "0.5.5"
+        versionName = "0.5.6"
         ndk {
             // Phones (arm64) and the emulator (x86_64).
             abiFilters += listOf("arm64-v8a", "x86_64")

@@ -109,8 +109,9 @@ fun PlayerScreen(
                             onDragEnd = {
                                 val (dx, dy) = total
                                 when {
-                                    abs(dx) > abs(dy) && dx > threshold -> player.next()
-                                    abs(dx) > abs(dy) && dx < -threshold -> player.back()
+                                    // ← next; → restart (twice in a row: previous song)
+                                    abs(dx) > abs(dy) && dx < -threshold -> player.next()
+                                    abs(dx) > abs(dy) && dx > threshold -> player.back()
                                     abs(dy) > abs(dx) && dy > threshold -> onLyrics()
                                 }
                                 scope.launch { slide.animateTo(0f) }

@@ -65,7 +65,7 @@ fun CarScreen(
             Modifier.fillMaxSize().systemBarsPadding().padding(20.dp).systemGestureExclusion().pointerInput(Unit) {
                 var total = 0f
                 detectHorizontalDragGestures(onDragStart = { total = 0f },
-                    onDragEnd = { if (total > threshold) player.next() else if (total < -threshold) player.back() }) { change, amount ->
+                    onDragEnd = { if (total < -threshold) player.next() else if (total > threshold) player.back() }) { change, amount ->  // ← next, → back
                     total += amount
                     change.consume()
                 }
