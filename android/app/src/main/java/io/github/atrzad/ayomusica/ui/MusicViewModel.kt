@@ -36,6 +36,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -96,9 +99,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val scanned = MutableStateFlow<List<Song>>(emptyList())
     /** The library with the analyzer's corrections applied. */
+    // Everything derived from the library runs off the main thread: thousands of songs must not freeze the screen.
     val songs: StateFlow<List<Song>> = combine(scanned, overrides.all) { list, fixes ->
-        list.map { Overrides.apply(it, fixes[it.id]) }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        if (fixes.isEmpty()) list else list.map { song -> fixes[song.id]?.let { Overrides.apply(song, it) } ?: song }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val loading = MutableStateFlow(false)
     val loaded = MutableStateFlow(false)
     val query = MutableStateFlow("")
@@ -113,14 +117,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val voiceSync by lazy { io.github.atrzad.ayomusica.voice.VoiceSync(application) }
     private var voiceJob: Job? = null
 
-    val albums: StateFlow<List<Album>> = songs.map(Grouping::albums).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val artists: StateFlow<List<Artist>> = songs.map(Grouping::artists).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val genres: StateFlow<List<Group>> = songs.map(Grouping::genres).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val folders: StateFlow<List<Group>> = songs.map(Grouping::folders).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val results: StateFlow<List<Song>> = combine(songs, query) { all, text -> Grouping.search(all, text) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    private val byId = songs.map { list -> list.associateBy { it.id } }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    private fun <T> derived(initial: T, work: (List<Song>) -> T): StateFlow<T> =
+        songs.map(work).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, initial)
+
+    val albums: StateFlow<List<Album>> = derived(emptyList(), Grouping::albums)
+    val artists: StateFlow<List<Artist>> = derived(emptyList(), Grouping::artists)
+    val genres: StateFlow<List<Group>> = derived(emptyList(), Grouping::genres)
+    val folders: StateFlow<List<Group>> = derived(emptyList(), Grouping::folders)
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    val results: StateFlow<List<Song>> = combine(songs, query.debounce { if (it.isEmpty()) 0L else 180L }) { all, text ->
+        Grouping.search(all, text)
+    }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    private val byId = derived(emptyMap()) { list -> list.associateBy { it.id } }
+    /** Sizes of the automatic lists (Curtidas, Mais tocadas...), counted in the background. */
+    val autoCounts: StateFlow<Map<AutoList, Int>> = combine(songs, statsStore.all) { list, stats ->
+        AutoList.entries.associateWith { it.songs(list, stats).size }
+    }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    /** How many songs the analyzer would look at. */
+    val needingWorkCount: StateFlow<Int> = combine(scanned, overrides.all) { list, fixes ->
+        list.count { it.id !in fixes && Analyzer.needsWork(it) }
+    }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     private var lyricsJob: Job? = null
     private var analysisJob: Job? = null
@@ -317,12 +333,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── analyzer ─────────────────────────────────────────────────────────
-    fun needingWork(): List<Song> = scanned.value.filter { it.id !in overrides.all.value && Analyzer.needsWork(it) }
-
     fun analyze(all: Boolean) {
         if (analysis.value.running) return
-        val targets = if (all) scanned.value.filter { it.id !in overrides.all.value } else needingWork()
         analysisJob = viewModelScope.launch {
+            val fixes = overrides.all.value
+            val targets = withContext(Dispatchers.Default) {
+                scanned.value.filter { it.id !in fixes && (all || Analyzer.needsWork(it)) }
+            }
             analysis.value = AnalysisState(running = true, total = targets.size)
             val analyzer = Analyzer()
             val found = mutableListOf<AnalysisItem>()

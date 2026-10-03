@@ -45,7 +45,7 @@ class PlaybackService : MediaSessionService() {
             override fun onEvents(player: Player, events: Player.Events) {
                 if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_TIMELINE_CHANGED,
                         Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
-                        Player.EVENT_REPEAT_MODE_CHANGED)) save(player)
+                        Player.EVENT_REPEAT_MODE_CHANGED)) saveSoon(player)
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) = listening.playing(isPlaying)
@@ -74,6 +74,10 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    private companion object {
+        const val MAX_SAVED = 3000
+    }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         val player = session?.player
@@ -137,12 +141,29 @@ class PlaybackService : MediaSessionService() {
         player.prepare()  // ready, but paused
     }
 
+    private val writer = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingSave: Runnable? = null
+
+    /** Several events come together (new queue + new song + playing): save once, a moment later. */
+    private fun saveSoon(player: Player) {
+        pendingSave?.let(handler::removeCallbacks)
+        pendingSave = Runnable { save(player) }.also { handler.postDelayed(it, 800) }
+    }
+
+    /**
+     * The queue is saved in the background, at most [MAX_SAVED] songs around the current one (playing a whole
+     * 12 000-song library must not write megabytes on every song change).
+     */
     private fun save(player: Player) {
-        val items = (0 until player.mediaItemCount).mapNotNull { SavedItem.of(player.getMediaItemAt(it)) }
-        runCatching {
-            store.write(SavedQueue(items, player.currentMediaItemIndex.coerceAtLeast(0),
-                player.currentPosition.coerceAtLeast(0), player.shuffleModeEnabled, player.repeatMode))
-        }
+        val count = player.mediaItemCount
+        val current = player.currentMediaItemIndex.coerceAtLeast(0)
+        val first = (current - MAX_SAVED / 6).coerceIn(0, maxOf(0, count - MAX_SAVED))
+        val last = minOf(count, first + MAX_SAVED)
+        val items = (first until last).mapNotNull { SavedItem.of(player.getMediaItemAt(it)) }
+        val queue = SavedQueue(items, (current - first).coerceAtLeast(0), player.currentPosition.coerceAtLeast(0),
+            player.shuffleModeEnabled, player.repeatMode)
+        writer.execute { runCatching { store.write(queue) } }
     }
 
     private inner class Callback : MediaSession.Callback {

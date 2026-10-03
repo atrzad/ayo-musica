@@ -203,10 +203,11 @@ private fun sourceText(lyrics: Lyrics): String {
 fun QueueSheet(ui: PlayerUi, player: PlayerConnection, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text("Fila", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge)
-        val start = ui.queue.indexOfFirst { it.index == ui.index }.coerceAtLeast(0)
+        val queue = remember(ui.queueSize, ui.shuffle, ui.current) { player.queue() }
+        val start = queue.indexOfFirst { it.index == ui.index }.coerceAtLeast(0)
         val listState = rememberLazyListState(initialFirstVisibleItemIndex = start)
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
-            itemsIndexed(ui.queue, key = { _, entry -> "${entry.index}-${entry.item.mediaId}" }) { _, entry ->
+            itemsIndexed(queue, key = { _, entry -> "${entry.index}-${entry.item.mediaId}" }) { _, entry ->
                 val current = entry.index == ui.index
                 Row(Modifier.fillMaxWidth()
                     .background(if (current) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainerLow)

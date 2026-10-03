@@ -61,7 +61,7 @@ class MediaLibrary(private val context: Context) {
                 )
             }
         }
-        songs.sortedBy { fold(it.title) }
+        songs.sortedBy { it.titleKey }
     }
 
     private fun cleanUnknown(value: String?): String =

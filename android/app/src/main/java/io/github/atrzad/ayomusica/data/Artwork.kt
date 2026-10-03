@@ -11,7 +11,8 @@ import android.util.Size
 
 /** Cover art of a song, read from the file's tags through MediaStore. Cached in memory. */
 object Artwork {
-    private val cache = object : LruCache<String, Bitmap>(48 * 1024 * 1024) {
+    // An eighth of the app's memory (often 32–64 MB): enough for the screens in view, never the whole library.
+    private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 8).toInt()) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
     private val missing = mutableSetOf<String>()

@@ -101,6 +101,8 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val sleep by viewModel.sleep.collectAsStateWithLifecycle()
     val analysis by viewModel.analysis.collectAsStateWithLifecycle()
     val voice by viewModel.voice.collectAsStateWithLifecycle()
+    val autoCounts by viewModel.autoCounts.collectAsStateWithLifecycle()
+    val needingWork by viewModel.needingWorkCount.collectAsStateWithLifecycle()
     val useMode by prefs.useMode.collectAsStateWithLifecycle()
     val tabs by prefs.tabs.collectAsStateWithLifecycle()
     val startTab by prefs.startTab.collectAsStateWithLifecycle()
@@ -201,7 +203,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                         Tab.Playlists -> PlaylistsScreen(playlists, { viewModel.playlistSongs(it).size },
                             onOpen = { viewModel.open(Route.PlaylistPage(it.id)) },
                             onCreate = { naming = "Nova playlist" to { name: String -> viewModel.createPlaylist(name) } },
-                            autoCount = { list -> list.songs(songs, stats).size },
+                            autoCount = { list -> autoCounts[list] ?: 0 },
                             onAuto = { viewModel.open(Route.AutoPage(it)) })
                     }
                     is Route.AlbumPage -> albums.firstOrNull { it.key == route.key }?.let { AlbumScreen(it, currentId, actions, play) }
@@ -210,10 +212,13 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     is Route.FolderPage -> folders.firstOrNull { it.name == route.name }?.let { GroupScreen(it, currentId, actions, play) }
                     is Route.PlaylistPage -> playlists.firstOrNull { it.id == route.id }
                         ?.let { PlaylistScreen(it, viewModel.playlistSongs(it), currentId, actions, play) }
-                    is Route.AutoPage -> AutoListScreen(route.list, route.list.songs(songs, stats), currentId, actions, play)
+                    is Route.AutoPage -> {
+                        val list = remember(route.list, songs, stats) { route.list.songs(songs, stats) }
+                        AutoListScreen(route.list, list, currentId, actions, play)
+                    }
                     Route.Settings -> SettingsScreen({ viewModel.open(Route.SettingsOf(it)) }, version)
                     is Route.SettingsOf -> when (route.page) {
-                        SettingsPage.Analyzer -> AnalyzerPage(analysis, viewModel.needingWork().size, songs.size,
+                        SettingsPage.Analyzer -> AnalyzerPage(analysis, needingWork, songs.size,
                             viewModel.correctedCount(), viewModel::analyze, viewModel::stopAnalysis, viewModel::accept,
                             viewModel::undo, viewModel::undoAll)
                         SettingsPage.Equalizer -> EqualizerPage()

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2 — Bibliotecas grandes
+
+- Android rápido com bibliotecas enormes (testado com 12 000 músicas): ordenar, agrupar (álbuns, artistas,
+  gêneros, pastas), buscar e contar as listas automáticas saíram da thread da tela; a busca espera você parar de
+  digitar; uma expressão regular que era recompilada centenas de milhares de vezes agora é compilada uma vez.
+- Tocar uma lista gigante começa na hora: o player recebe a música escolhida e as próximas 300 e o resto entra em
+  segundo plano, em lotes (antes a tela travava ~1,2 s); a fila só é montada quando você abre a fila e é salva em
+  segundo plano (no máximo 3 000 músicas em volta da atual).
+- Capas: no máximo 4 sendo lidas ao mesmo tempo, as que saem da tela são canceladas, e o cache usa 1/8 da memória
+  do app.
+
 ## 0.5.1 — Botão de abas
 
 - Android: as abas abrem em leque centralizado acima do botão redondo, com qualquer número de abas; a direção do

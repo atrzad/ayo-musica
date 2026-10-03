@@ -57,14 +57,18 @@ import io.github.atrzad.ayomusica.data.durationText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** At most four covers decoded at a time, so fast scrolling through thousands of songs stays smooth. */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+private val COVERS = Dispatchers.IO.limitedParallelism(4)
+
 /** Cover art from the song's file, or a note icon. `sizePx` is the decode size. */
 @Composable
 fun Cover(uri: Uri?, modifier: Modifier = Modifier, sizePx: Int = 256, corner: Dp = 8.dp) {
     val context = LocalContext.current
     val bitmap by produceState(uri?.let { Artwork.cached(it, sizePx) }, uri, sizePx) {
-        // A new song: drop the previous cover right away, then load this one.
+        // A new song: drop the previous cover right away, then load this one. Covers scrolled past are cancelled.
         value = uri?.let { Artwork.cached(it, sizePx) }
-        if (uri != null && value == null) value = withContext(Dispatchers.IO) { Artwork.load(context, uri, sizePx) }
+        if (uri != null && value == null) value = withContext(COVERS) { Artwork.load(context, uri, sizePx) }
     }
     Box(
         modifier.clip(RoundedCornerShape(corner)).background(MaterialTheme.colorScheme.surfaceVariant),
