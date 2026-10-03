@@ -149,7 +149,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             pendingExternal = null
         }
         viewModelScope.launch {
-            player.ui.map { it.current?.mediaId }.distinctUntilChanged().collect { loadLyrics() }
+            // Load the lyrics when the song changes, and again once the library (built in the background)
+            // knows that song: right after opening, the player restores a song before the library is ready.
+            combine(player.ui.map { it.current?.mediaId }.distinctUntilChanged(), byId) { id, known ->
+                id to (id?.toLongOrNull()?.let(known::containsKey) == true)
+            }.distinctUntilChanged().collect { loadLyrics() }
         }
     }
 

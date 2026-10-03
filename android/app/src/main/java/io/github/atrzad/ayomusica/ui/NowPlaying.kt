@@ -123,7 +123,15 @@ fun SeekBar(position: Long, duration: Long, onSeek: (Long) -> Unit) {
 
 /** Synced lyrics highlight the sung line and follow it; scrolling by hand pauses that for a few seconds. */
 @Composable
-fun LyricsPanel(state: LyricsUi, positionMs: Long, onSeek: (Long) -> Unit, onRetry: () -> Unit) {
+fun LyricsPanel(
+    state: LyricsUi,
+    positionMs: Long,
+    onSeek: (Long) -> Unit,
+    onRetry: () -> Unit,
+    /** Called when the person keeps pushing up past the end (or, if [scrollable] is false, swipes up). */
+    onPushUp: (() -> Unit)? = null,
+    scrollable: Boolean = true,
+) {
     val lyrics = (state as? LyricsUi.Shown)?.lyrics
     if (lyrics == null) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -146,6 +154,19 @@ fun LyricsPanel(state: LyricsUi, positionMs: Long, onSeek: (Long) -> Unit, onRet
                 if (source == NestedScrollSource.UserInput) pausedUntil = System.currentTimeMillis() + 4000
                 return Offset.Zero
             }
+
+            private var pushed = 0f
+
+            // A swipe up that the list can't use any more (it is at the end) goes back to the player.
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput || onPushUp == null) return Offset.Zero
+                pushed = if (available.y < 0) pushed + available.y else 0f
+                if (pushed < -220f) {
+                    pushed = 0f
+                    onPushUp()
+                }
+                return Offset.Zero
+            }
         }
     }
     val current = lyrics.currentIndex(positionMs)
@@ -155,7 +176,7 @@ fun LyricsPanel(state: LyricsUi, positionMs: Long, onSeek: (Long) -> Unit, onRet
             listState.animateScrollToItem(maxOf(current, 0), -(viewport * 0.35f).toInt())
         }
     }
-    LazyColumn(Modifier.fillMaxSize().nestedScroll(manual), state = listState,
+    LazyColumn(Modifier.fillMaxSize().nestedScroll(manual), state = listState, userScrollEnabled = scrollable,
         contentPadding = PaddingValues(vertical = 120.dp)) {
         itemsIndexed(lyrics.lines) { index, line ->
             LyricLine(line, lyrics, index, current) { time -> onSeek(time) }
@@ -193,6 +214,9 @@ private fun sourceText(lyrics: Lyrics): String {
     val where = when (lyrics.source) {
         "lrclib" -> "LRCLIB"
         "embutida" -> "tags da música"
+        "manual" -> "marcada por você"
+        "voz" -> "sincronizada pela voz"
+        "escolhida" -> "escolhida na busca"
         else -> lyrics.source
     }
     return (if (lyrics.synced) "Letra sincronizada" else "Letra sem tempos") + if (where.isNotEmpty()) " · $where" else ""

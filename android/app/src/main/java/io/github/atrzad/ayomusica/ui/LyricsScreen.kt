@@ -121,8 +121,22 @@ fun LyricsScreen(
                     }
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
-                LyricsPanel(lyrics, position, onSeek = player::seekTo, onRetry = onRetry)
+            // The reverse of the swipe down that opened this screen: swipe up goes back to the player.
+            // Synced lyrics scroll on their own, so a swipe up anywhere returns; plain lyrics still scroll
+            // and return once you push past their end.
+            val synced = shown?.synced == true
+            Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp)
+                .then(if (synced || shown == null) Modifier.pointerInput(Unit) {
+                    var total = 0f
+                    detectVerticalDragGestures(onDragStart = { total = 0f },
+                        onDragEnd = { if (total < -threshold) onBack() }) { change, amount ->
+                        total += amount
+                        change.consume()
+                    }
+                } else Modifier),
+                contentAlignment = Alignment.Center) {
+                LyricsPanel(lyrics, position, onSeek = player::seekTo, onRetry = onRetry, onPushUp = onBack,
+                    scrollable = !synced)
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {

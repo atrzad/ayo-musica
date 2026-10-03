@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,20 +47,23 @@ import kotlin.math.abs
 
 /** "AYO PLAYER" (tap: settings) and, on the right, what is playing (tap: open; drag ←/→: back/next). */
 @Composable
-fun HomeHeader(ui: PlayerUi, song: Song?, player: PlayerConnection, onSettings: () -> Unit, onOpenPlayer: () -> Unit) {
+fun HomeHeader(ui: PlayerUi, song: Song?, player: PlayerConnection, onSettings: () -> Unit, onOpenPlayer: () -> Unit,
+               simple: Boolean = false) {
     Column(Modifier.statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("AYO PLAYER", Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onSettings).padding(4.dp),
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
-            Spacer(Modifier.weight(1f))
-            NowPlayingChip(ui, song, player, onOpenPlayer)
+            Spacer(Modifier.width(12.dp))
+            Row(Modifier.weight(1f), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
+                NowPlayingChip(ui, song, player, onOpenPlayer, simple)
+            }
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
     }
 }
 
 @Composable
-fun NowPlayingChip(ui: PlayerUi, song: Song?, player: PlayerConnection, onOpen: () -> Unit) {
+fun NowPlayingChip(ui: PlayerUi, song: Song?, player: PlayerConnection, onOpen: () -> Unit, simple: Boolean = false) {
     val item = ui.current ?: return
     val slide = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -87,9 +91,14 @@ fun NowPlayingChip(ui: PlayerUi, song: Song?, player: PlayerConnection, onOpen: 
         IconButton(onClick = player::toggle, Modifier.size(36.dp)) {
             Icon(if (ui.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (ui.isPlaying) "Pausar" else "Tocar")
         }
-        Text(song?.title ?: item.title(), Modifier.widthIn(max = 140.dp).padding(end = 8.dp), maxLines = 1,
+        Text(song?.title ?: item.title(), Modifier.weight(1f, fill = false).widthIn(max = 140.dp).padding(end = 8.dp), maxLines = 1,
             overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
         Cover(song?.artUri ?: item.localConfiguration?.uri, 36.dp, corner = 8.dp)
+        if (simple) {  // simplified mode: a button instead of the drag
+            IconButton(onClick = { player.next() }, Modifier.size(36.dp)) {
+                Icon(androidx.compose.material.icons.Icons.Rounded.SkipNext, "Próxima música")
+            }
+        }
     }
 }
 

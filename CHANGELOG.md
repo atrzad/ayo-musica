@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3 — Modo simplificado com botões
+
+- Modo simplificado: botões de música anterior e próxima e um botão Letra no Tocando agora, e botão de próxima
+  no canto da tela inicial (os gestos continuam valendo).
+- Tela de letra: deslizar para cima em qualquer lugar volta para o Tocando agora (com letra sem tempos, ao chegar
+  no fim dela); o ajuste de tempo ganhou uma linha própria (Mais cedo / Mais tarde).
+- Corrigido: o teclado da busca ficava aberto por cima do player; a letra podia não aparecer logo depois de abrir
+  o app.
+
 ## 0.5.2 — Bibliotecas grandes
 
 - Android rápido com bibliotecas enormes (testado com 12 000 músicas): ordenar, agrupar (álbuns, artistas,

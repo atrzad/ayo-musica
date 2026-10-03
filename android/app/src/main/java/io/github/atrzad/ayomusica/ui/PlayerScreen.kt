@@ -24,6 +24,10 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
@@ -74,6 +78,8 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onLyrics: () -> Unit,
     onArtist: () -> Unit,
+    /** Simplified mode: buttons for previous/next and the lyrics instead of relying on swipes. */
+    simple: Boolean = false,
 ) {
     val item = ui.current
     var menu by remember { mutableStateOf(false) }
@@ -156,9 +162,19 @@ fun PlayerScreen(
                     IconButton(onClick = { player.setShuffle(!ui.shuffle) }, Modifier.size(56.dp)) {
                         ShuffleIcon(ui.shuffle, if (ui.shuffle) MaterialTheme.colorScheme.primary else dim)
                     }
+                    if (simple) {
+                        IconButton(onClick = player::previous, Modifier.size(64.dp)) {
+                            Icon(Icons.Rounded.SkipPrevious, "Música anterior", Modifier.size(40.dp))
+                        }
+                    }
                     FilledIconButton(onClick = player::toggle, Modifier.size(84.dp)) {
                         Icon(if (ui.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             if (ui.isPlaying) "Pausar" else "Tocar", Modifier.size(48.dp))
+                    }
+                    if (simple) {
+                        IconButton(onClick = { player.next() }, Modifier.size(64.dp)) {
+                            Icon(Icons.Rounded.SkipNext, "Próxima música", Modifier.size(40.dp))
+                        }
                     }
                     // 1 tap: repeat the playlist/album; 2 taps: only this song; 3: off.
                     IconButton(onClick = player::cycleRepeat, Modifier.size(56.dp)) {
@@ -172,9 +188,17 @@ fun PlayerScreen(
                             tint = if (ui.repeat == Player.REPEAT_MODE_OFF) dim else MaterialTheme.colorScheme.primary)
                     }
                 }
-                Text("← volta   ·   avança →   ·   ↓ letra", Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                if (simple) {
+                    OutlinedButton(onClick = onLyrics, Modifier.fillMaxWidth().padding(bottom = 8.dp).height(52.dp)) {
+                        Icon(Icons.Rounded.Lyrics, null)
+                        Spacer(Modifier.size(8.dp))
+                        Text("Letra")
+                    }
+                } else {
+                    Text("← volta   ·   avança →   ·   ↓ letra", Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                }
                 Spacer(Modifier.height(4.dp))
             }
         }

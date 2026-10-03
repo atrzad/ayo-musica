@@ -148,7 +148,20 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             tell(if (stats[song.id]?.favorite == true) "Tirada das curtidas" else "Adicionada às curtidas")
         },
     )
-    val play: (List<Song>, Int, Boolean) -> Unit = { list, start, shuffle -> viewModel.play(list, start, shuffle) }
+    // The search keyboard must not stay open over the player or the lyrics.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(screen) {
+        if (screen != Screen.Library) {
+            keyboard?.hide()
+            focus.clearFocus()
+        }
+    }
+    val play: (List<Song>, Int, Boolean) -> Unit = { list, start, shuffle ->
+        keyboard?.hide()
+        focus.clearFocus()
+        viewModel.play(list, start, shuffle)
+    }
 
     BackHandler(enabled = screen != Screen.Library || routes.size > 1) { viewModel.back() }
 
@@ -165,7 +178,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             topBar = {
                 if (home != null) {
                     HomeHeader(ui, current, viewModel.player, onSettings = { viewModel.open(Route.Settings) },
-                        onOpenPlayer = { viewModel.show(Screen.Player) })
+                        onOpenPlayer = { viewModel.show(Screen.Player) }, simple = useMode == UseMode.Simple)
                 } else {
                     PageHeader(titleOf(route, playlists), onBack = { viewModel.back() }) {
                         (route as? Route.PlaylistPage)?.let { page ->
@@ -244,7 +257,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                 onArtist = {
                     current?.let { viewModel.open(Route.ArtistPage(it.shownArtist)) }
                     viewModel.show(Screen.Library)
-                })
+                }, simple = useMode == UseMode.Simple)
         }
         AnimatedVisibility(screen == Screen.Lyrics || screen == Screen.Sync,
             enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {

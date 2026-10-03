@@ -95,7 +95,7 @@ fun SongsScreen(songs: List<Song>, currentId: String?, query: String, onQuery: (
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 PlayButtons(songs, onPlay)
                 Spacer(Modifier.weight(1f))
-                Text("${songs.size} músicas", Modifier.padding(end = 16.dp),
+                Text(if (songs.size == 1) "1 música" else "${songs.size} músicas", Modifier.padding(end = 16.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
