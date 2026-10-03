@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.4 — Tutorial
+
+- Android: tutorial "Como usar" na primeira vez que o app abre (e em Configurações → Como usar), com o gesto de
+  cada tela animado: tela inicial, botão de abas, gestos do Tocando agora, aleatório/repetir/curtir, letra e modos.
+- A legenda dos gestos saiu do Tocando agora (agora está no tutorial).
+
 ## 0.5.3 — Modo simplificado com botões
 
 - Modo simplificado: botões de música anterior e próxima e um botão Letra no Tocando agora, e botão de próxima

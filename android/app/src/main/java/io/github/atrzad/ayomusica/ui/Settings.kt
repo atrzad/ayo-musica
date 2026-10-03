@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -50,6 +51,7 @@ import io.github.atrzad.ayomusica.analyzer.Verdict
 import io.github.atrzad.ayomusica.data.Song
 
 private fun SettingsPage.icon(): ImageVector = when (this) {
+    SettingsPage.Tutorial -> Icons.Rounded.TouchApp
     SettingsPage.Analyzer -> Icons.Rounded.AutoFixHigh
     SettingsPage.Equalizer -> Icons.Rounded.Equalizer
     SettingsPage.UseModes -> Icons.Rounded.DirectionsCar
@@ -59,6 +61,7 @@ private fun SettingsPage.icon(): ImageVector = when (this) {
 }
 
 private fun SettingsPage.detail(): String = when (this) {
+    SettingsPage.Tutorial -> "Os gestos e botões do app, passo a passo"
     SettingsPage.Analyzer -> "Busca título, artista, álbum, ano e capa oficial das músicas"
     SettingsPage.Equalizer -> "Ajustar, ligar e desligar"
     SettingsPage.UseModes -> "Normal, modo carro ou simplificado"

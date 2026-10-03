@@ -56,7 +56,7 @@ sealed interface LyricsUi {
 }
 
 enum class SettingsPage(val title: String) {
-    Analyzer("Analisador de músicas"), Equalizer("Equalizador"), UseModes("Modo"), Themes("Temas"),
+    Tutorial("Como usar"), Analyzer("Analisador de músicas"), Equalizer("Equalizador"), UseModes("Modo"), Themes("Temas"),
     HomeTabs("Página inicial"), LyricsSettings("Letras")
 }
 

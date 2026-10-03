@@ -195,9 +195,7 @@ fun PlayerScreen(
                         Text("Letra")
                     }
                 } else {
-                    Text("← volta   ·   avança →   ·   ↓ letra", Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    Spacer(Modifier.height(12.dp))  // the gestures are taught in the tutorial (Configurações → Como usar)
                 }
                 Spacer(Modifier.height(4.dp))
             }

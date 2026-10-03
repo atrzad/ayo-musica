@@ -110,6 +110,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val theme by prefs.theme.collectAsStateWithLifecycle()
     val mode by prefs.mode.collectAsStateWithLifecycle()
     val lyricsOnline by prefs.lyricsOnline.collectAsStateWithLifecycle()
+    val tutorialSeen by prefs.tutorialSeen.collectAsStateWithLifecycle()
     val sessionId by PlayerHub.audioSessionId.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var explainVisualizer by remember { mutableStateOf(false) }
@@ -164,6 +165,16 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     }
 
     BackHandler(enabled = screen != Screen.Library || routes.size > 1) { viewModel.back() }
+
+    // First run (or Configurações → Como usar): the tutorial covers everything.
+    val tutorialRoute = route is Route.SettingsOf && route.page == SettingsPage.Tutorial
+    if (!tutorialSeen || tutorialRoute) {
+        TutorialScreen(onDone = {
+            prefs.setTutorialSeen(true)
+            if (tutorialRoute) viewModel.back()
+        })
+        return
+    }
 
     if (useMode == UseMode.Car) {
         CarScreen(ui, current, viewModel.player, favorite, onFavorite = { current?.let(viewModel::toggleFavorite) },
@@ -231,6 +242,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     }
                     Route.Settings -> SettingsScreen({ viewModel.open(Route.SettingsOf(it)) }, version)
                     is Route.SettingsOf -> when (route.page) {
+                        SettingsPage.Tutorial -> Unit  // shown full screen above
                         SettingsPage.Analyzer -> AnalyzerPage(analysis, needingWork, songs.size,
                             viewModel.correctedCount(), viewModel::analyze, viewModel::stopAnalysis, viewModel::accept,
                             viewModel::undo, viewModel::undoAll)
