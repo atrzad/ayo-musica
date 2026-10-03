@@ -100,6 +100,11 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val sleep by viewModel.sleep.collectAsStateWithLifecycle()
     val analysis by viewModel.analysis.collectAsStateWithLifecycle()
+    val metaSearch by viewModel.metaSearch.collectAsStateWithLifecycle()
+    val fixes by viewModel.fixes.collectAsStateWithLifecycle()
+    val loaded by viewModel.loaded.collectAsStateWithLifecycle()
+    // "Corrigir informações" starts with a fresh search for that song.
+    val openFix: (Long) -> Unit = { id -> viewModel.clearMetaSearch(); viewModel.open(Route.FixSong(id)) }
     val voice by viewModel.voice.collectAsStateWithLifecycle()
     val autoCounts by viewModel.autoCounts.collectAsStateWithLifecycle()
     val needingWork by viewModel.needingWorkCount.collectAsStateWithLifecycle()
@@ -133,7 +138,9 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     }
 
     val route = routes.last()
-    val current = viewModel.songOf(ui.current)
+    // Observed, so a correction saved in the app shows at once on every screen (not only on the next song).
+    val byId by viewModel.byId.collectAsStateWithLifecycle()
+    val current = ui.current?.mediaId?.toLongOrNull()?.let(byId::get)
     val currentId = ui.current?.mediaId
     val favorite = current != null && stats[current.id]?.favorite == true
     val actions = SongActions(
@@ -148,6 +155,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             viewModel.toggleFavorite(song)
             tell(if (stats[song.id]?.favorite == true) "Tirada das curtidas" else "Adicionada às curtidas")
         },
+        fixInfo = { song -> openFix(song.id) },
     )
     // The search keyboard must not stay open over the player or the lyrics.
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -244,12 +252,27 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                         val list = remember(route.list, songs, stats) { route.list.songs(songs, stats) }
                         AutoListScreen(route.list, list, currentId, actions, play)
                     }
+                    is Route.FixSong -> {
+                        val original = remember(route.id, loaded) { viewModel.originalSong(route.id) }
+                        val shown = songs.firstOrNull { it.id == route.id } ?: original
+                        if (original != null && shown != null) {
+                            FixSongScreen(original, shown, fixes[route.id], metaSearch,
+                                onSearch = { title, artist, sources -> viewModel.searchMetadata(original, title, artist, sources) },
+                                onComplete = viewModel::completeCandidate,
+                                onSave = { override, covers, useCover ->
+                                    viewModel.saveOverride(route.id, override, covers, useCover)
+                                    tell("Informações salvas no app")
+                                    viewModel.back()
+                                },
+                                onRestore = { viewModel.restoreTags(route.id); tell("Tags do arquivo restauradas") })
+                        }
+                    }
                     Route.Settings -> SettingsScreen({ viewModel.open(Route.SettingsOf(it)) }, version)
                     is Route.SettingsOf -> when (route.page) {
                         SettingsPage.Tutorial -> Unit  // shown full screen above
                         SettingsPage.Analyzer -> AnalyzerPage(analysis, needingWork, songs.size,
                             viewModel.correctedCount(), viewModel::analyze, viewModel::stopAnalysis, viewModel::accept,
-                            viewModel::undo, viewModel::undoAll)
+                            viewModel::undo, viewModel::undoAll, viewModel::acceptAll, onSearch = { openFix(it.song.id) })
                         SettingsPage.Equalizer -> EqualizerPage()
                         SettingsPage.UseModes -> UseModePage(useMode, prefs::setUseMode)
                         SettingsPage.Themes -> ThemeContent(theme, mode, MaterialTheme.colorScheme.background.luminance() < 0.3f,
@@ -272,6 +295,10 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                 onLyrics = { viewModel.show(Screen.Lyrics) },
                 onArtist = {
                     current?.let { viewModel.open(Route.ArtistPage(it.shownArtist)) }
+                    viewModel.show(Screen.Library)
+                },
+                onFixInfo = {
+                    current?.let { openFix(it.id) }
                     viewModel.show(Screen.Library)
                 }, simple = useMode == UseMode.Simple)
         }
@@ -364,4 +391,5 @@ private fun titleOf(route: Route, playlists: List<io.github.atrzad.ayomusica.dat
     is Route.AutoPage -> route.list.title
     Route.Settings -> "Configurações"
     is Route.SettingsOf -> route.page.title
+    is Route.FixSong -> "Corrigir informações"
 }

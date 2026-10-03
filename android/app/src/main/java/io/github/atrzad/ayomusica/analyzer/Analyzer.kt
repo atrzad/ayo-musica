@@ -7,50 +7,53 @@ import io.github.atrzad.ayomusica.lyrics.Clean
 import kotlin.math.abs
 
 /** A proposal for one song and how sure we are (0..100). */
-data class Proposal(val override: SongOverride, val coverUrl: String?, val score: Int, val label: String)
+data class Proposal(val override: SongOverride, val covers: List<String>, val score: Int, val label: String, val source: Source)
 
 enum class Verdict { Auto, Review, NotFound }
 
 /**
- * Identifies songs by their tags and file name on Deezer, like the desktop app: same title, same artist and
- * duration within a few seconds is enough to apply on its own; doubtful matches go to review.
+ * Identifies songs by their tags and file name, like the desktop app: same title, same artist and duration within a
+ * few seconds is enough to apply on its own; doubtful matches go to review. Deezer is asked first; Apple Music and
+ * MusicBrainz only when it is not sure, since they allow fewer requests.
  */
-class Analyzer(private val deezer: Deezer = Deezer()) {
+class Analyzer(private val sources: List<MetadataSource> = listOf(Deezer(), ITunes(), MusicBrainz())) {
 
     fun analyze(song: Song): Pair<Verdict, Proposal?> {
         val readings = Clean.readings(song).take(3)
-        var best: Proposal? = null
-        val seen = mutableSetOf<Long>()
-        for (reading in readings) {
-            val query = if (reading.artist.isNotBlank()) "artist:\"${reading.artist}\" track:\"${reading.title}\""
-                else reading.title
-            var results = deezer.search(query)
-            if (results.isEmpty() && reading.artist.isNotBlank()) results = deezer.search("${reading.artist} ${reading.title}")
-            for (track in results) {
-                if (!seen.add(track.id)) continue
-                val score = score(track, song, readings)
-                if (score > (best?.score ?: -1)) best = proposal(track, score)
+        var best: Pair<Candidate, Int>? = null
+        val seen = mutableSetOf<String>()
+        var failures = 0
+        for ((index, source) in sources.withIndex()) {
+            // The slower sources only get the likeliest readings.
+            for (reading in if (index == 0) readings else readings.take(2)) {
+                val results = try {
+                    source.search(reading.title, reading.artist)
+                } catch (error: java.io.IOException) {
+                    failures++
+                    break  // this source is out of reach (or rate limited): go on with the next one
+                }
+                for (candidate in results) {
+                    if (!seen.add("${candidate.source}:${candidate.id}")) continue
+                    val score = score(candidate, song, readings)
+                    if (score > (best?.second ?: -1)) best = candidate to score
+                }
+                if ((best?.second ?: 0) >= AUTO) break
             }
-            if ((best?.score ?: 0) >= AUTO) break
+            if ((best?.second ?: 0) >= AUTO) break
         }
-        val found = best ?: return Verdict.NotFound to null
+        if (best == null && failures == sources.size) throw java.io.IOException("Sem conexão com as fontes.")
+        val (candidate, score) = best ?: return Verdict.NotFound to null
         return when {
-            found.score >= AUTO -> Verdict.Auto to found
-            found.score >= REVIEW -> Verdict.Review to found
+            score >= AUTO -> Verdict.Auto to proposal(candidate, score)
+            score >= REVIEW -> Verdict.Review to proposal(candidate, score)
             else -> Verdict.NotFound to null
         }
     }
 
-    private fun proposal(track: DeezerTrack, score: Int): Proposal {
-        val album = if (score >= REVIEW) deezer.album(track.album.id) else null
-        val override = SongOverride(
-            title = track.title, artist = track.artist.name, album = track.album.title,
-            albumArtist = album?.artist?.name.orEmpty(),
-            year = album?.release_date?.take(4)?.toIntOrNull() ?: 0,
-            genre = album?.genres?.data?.firstOrNull()?.name.orEmpty(),
-        )
-        return Proposal(override, track.album.cover_xl ?: track.album.cover_big, score,
-            "${track.artist.name} — ${track.title}")
+    private fun proposal(found: Candidate, score: Int): Proposal {
+        val source = sources.first { it.source == found.source }
+        val candidate = runCatching { source.complete(found) }.getOrDefault(found)
+        return Proposal(override(candidate), candidate.covers, score, "${candidate.artist} — ${candidate.title}", candidate.source)
     }
 
     companion object {
@@ -67,9 +70,16 @@ class Analyzer(private val deezer: Deezer = Deezer()) {
                 song.year == 0
         }
 
-        fun score(track: DeezerTrack, song: Song, readings: List<Clean.Reading>): Int {
+        /** What saving [candidate] writes over the song's tags (inside the app). */
+        fun override(candidate: Candidate) = SongOverride(
+            title = candidate.title, artist = candidate.artist, album = candidate.album,
+            albumArtist = candidate.albumArtist, year = candidate.year, genre = candidate.genre,
+            source = candidate.source.name.lowercase(),
+        )
+
+        fun score(track: Candidate, song: Song, readings: List<Clean.Reading> = Clean.readings(song)): Int {
             val seconds = song.durationMs / 1000
-            val difference = if (seconds > 0 && track.duration > 0) abs(track.duration - seconds) else null
+            val difference = if (seconds > 0 && track.seconds > 0) abs(track.seconds - seconds) else null
             if (difference != null && difference > 15) return 0
             val title = fold(Clean.coreTitle(track.title))
             val raw = fold(song.title + " " + song.displayName)
@@ -83,7 +93,7 @@ class Analyzer(private val deezer: Deezer = Deezer()) {
                 }
                 if (points == 0) continue
                 val names = Clean.artists(reading.artist).map(::fold)
-                val artist = fold(track.artist.name)
+                val artist = fold(track.artist)
                 points += when {
                     names.isEmpty() -> if (difference != null && difference <= 2) 15 else -40
                     names.any { it.isNotEmpty() && (it in artist || artist in it) } -> 30

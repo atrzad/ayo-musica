@@ -79,6 +79,7 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onLyrics: () -> Unit,
     onArtist: () -> Unit,
+    onFixInfo: () -> Unit = {},
     /** Simplified mode: buttons for previous/next and the lyrics instead of relying on swipes. */
     simple: Boolean = false,
 ) {
@@ -138,6 +139,7 @@ fun PlayerScreen(
                             DropdownMenuItem(text = { Text(if (visualizer) "Desligar o visualizador" else "Ligar o visualizador") },
                                 onClick = { menu = false; onVisualizer() })
                             DropdownMenuItem(text = { Text("Ir para o artista") }, onClick = { menu = false; onArtist() })
+                            DropdownMenuItem(text = { Text("Corrigir informações") }, onClick = { menu = false; onFixInfo() })
                         }
                     }
                     IconButton(onClick = onFavorite) {

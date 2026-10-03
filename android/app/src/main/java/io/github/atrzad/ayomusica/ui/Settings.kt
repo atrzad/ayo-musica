@@ -178,11 +178,14 @@ fun AnalyzerPage(
     onAccept: (AnalysisItem) -> Unit,
     onUndo: (AnalysisItem) -> Unit,
     onUndoAll: () -> Unit,
+    onAcceptAll: () -> Unit,
+    onSearch: (AnalysisItem) -> Unit,
 ) {
     var filter by remember { mutableStateOf(Verdict.Auto) }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         item {
-            Text("Procura cada música no Deezer pelas tags e pelo nome do arquivo e completa título, artista, álbum, " +
+            Text("Procura cada música no Deezer, no Apple Music e no MusicBrainz pelas tags e pelo nome do arquivo e " +
+                "completa título, artista, álbum, " +
                 "ano, gênero e a capa oficial. Quando título, artista e duração batem, aplica sozinho; o resto fica " +
                 "para você revisar. As correções valem dentro do app: seus arquivos não são alterados.",
                 Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.bodyMedium,
@@ -216,6 +219,16 @@ fun AnalyzerPage(
                 if (filter == Verdict.Auto && state.items.any { it.applied }) {
                     TextButton(onClick = onUndoAll) { Text("Desfazer todas") }
                 }
+                val waiting = state.items.count { it.verdict == Verdict.Review && !it.applied && it.proposal != null }
+                if (filter == Verdict.Review && waiting > 0) {
+                    Button(onClick = onAcceptAll, Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text("Aceitar todas ($waiting)")
+                    }
+                }
+                if (filter != Verdict.Auto) {
+                    Text("Nenhuma serve? Toque em Procurar para buscar à mão nas fontes e escolher.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
         val shown = state.items.filter {
@@ -225,12 +238,13 @@ fun AnalyzerPage(
                 Verdict.NotFound -> it.verdict == Verdict.NotFound
             }
         }
-        items(shown, key = { it.song.id }) { item -> AnalysisRow(item, onAccept, onUndo) }
+        items(shown, key = { it.song.id }) { item -> AnalysisRow(item, onAccept, onUndo, onSearch) }
     }
 }
 
 @Composable
-private fun AnalysisRow(item: AnalysisItem, onAccept: (AnalysisItem) -> Unit, onUndo: (AnalysisItem) -> Unit) {
+private fun AnalysisRow(item: AnalysisItem, onAccept: (AnalysisItem) -> Unit, onUndo: (AnalysisItem) -> Unit,
+                        onSearch: (AnalysisItem) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Cover(item.song.artUri, 44.dp)
@@ -240,14 +254,18 @@ private fun AnalysisRow(item: AnalysisItem, onAccept: (AnalysisItem) -> Unit, on
                 item.proposal?.let { proposal ->
                     val o = proposal.override
                     Text("→ ${o.artist} — ${o.title}", maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
-                    Text(listOfNotNull(o.album.ifBlank { null }, o.year.takeIf { it > 0 }?.toString(), "confiança ${proposal.score}")
+                    Text(listOfNotNull(o.album.ifBlank { null }, o.year.takeIf { it > 0 }?.toString(), proposal.source.label,
+                        "confiança ${proposal.score}")
                         .joinToString(" · "), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+        }
+        Row(Modifier.fillMaxWidth().padding(start = 56.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            OutlinedButton(onClick = { onSearch(item) }) { Text("Procurar") }
             when {
-                item.applied -> TextButton(onClick = { onUndo(item) }) { Text("Desfazer") }
-                item.proposal != null -> TextButton(onClick = { onAccept(item) }) { Text("Aceitar") }
+                item.applied -> OutlinedButton(onClick = { onUndo(item) }) { Text("Desfazer") }
+                item.proposal != null -> Button(onClick = { onAccept(item) }) { Text("Aceitar") }
             }
         }
     }

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0 — Mais fontes e correção manual (Android)
+
+- Identificação com três fontes, sem conta nem chave: Deezer, Apple Music (iTunes) e MusicBrainz (capas do Cover
+  Art Archive). O Analisador consulta Apple Music e MusicBrainz quando o Deezer não tem certeza.
+- Nova tela "Corrigir informações" (menu ⋮ de qualquer música, Tocando agora → ⋮, ou Procurar no Analisador):
+  busca por título e artista nas fontes escolhidas, mostra capa, álbum, ano e duração (a diferença para a sua
+  música fica destacada) e, ao tocar num resultado, deixa revisar e editar título, artista, álbum, artista do álbum,
+  ano, gênero e capa antes de salvar. Também dá para editar à mão e restaurar as tags do arquivo.
+- Analisador: botões Aceitar/Desfazer maiores, "Aceitar todas" na aba Revisar e Procurar em cada música.
+- As correções continuam só no app: os arquivos não são alterados.
+- Corrigido: o cartão da música tocando só mostrava uma correção na música seguinte.
+
 ## 0.5.6 — Gestos invertidos
 
 - Arrastos invertidos, no Tocando agora, no cartão da tela inicial e no modo carro: um para a esquerda passa a

@@ -7,7 +7,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import io.github.atrzad.ayomusica.analyzer.Analyzer
+import io.github.atrzad.ayomusica.analyzer.Candidate
 import io.github.atrzad.ayomusica.analyzer.Deezer
+import io.github.atrzad.ayomusica.analyzer.Http
+import io.github.atrzad.ayomusica.analyzer.ITunes
+import io.github.atrzad.ayomusica.analyzer.MetadataSource
+import io.github.atrzad.ayomusica.analyzer.MusicBrainz
+import io.github.atrzad.ayomusica.analyzer.Source
 import io.github.atrzad.ayomusica.analyzer.Proposal
 import io.github.atrzad.ayomusica.analyzer.Verdict
 import io.github.atrzad.ayomusica.data.Album
@@ -32,6 +38,8 @@ import io.github.atrzad.ayomusica.playback.externalMediaItem
 import io.github.atrzad.ayomusica.playback.toMediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +78,8 @@ sealed interface Route {
     data class FolderPage(val name: String) : Route
     data object Settings : Route
     data class SettingsOf(val page: SettingsPage) : Route
+    /** Search the online sources by hand and write over a song's information. */
+    data class FixSong(val id: Long) : Route
 }
 
 /** What covers the library: nothing, the full player, the lyrics, or the sync editor. */
@@ -79,6 +89,15 @@ enum class Screen { Library, Player, Lyrics, Sync }
 data class VoiceState(val text: String, val progress: Float = -1f, val running: Boolean = true)
 
 data class AnalysisItem(val song: Song, val verdict: Verdict, val proposal: Proposal?, val applied: Boolean = false)
+
+/** The manual search on the "Corrigir informações" page. */
+data class MetaSearchState(
+    val loading: Boolean = false,
+    val results: List<Candidate> = emptyList(),
+    val searched: Boolean = false,
+    /** Sources that could not be reached on the last search. */
+    val failed: List<Source> = emptyList(),
+)
 
 data class AnalysisState(
     val running: Boolean = false,
@@ -113,6 +132,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val stats: StateFlow<Map<Long, SongStats>> = statsStore.all
     val sleep: StateFlow<SleepTimer.Mode> = SleepTimer.mode
     val analysis = MutableStateFlow(AnalysisState())
+    val metaSearch = MutableStateFlow(MetaSearchState())
+    /** The corrections saved in the app, by song id. */
+    val fixes: StateFlow<Map<Long, io.github.atrzad.ayomusica.data.SongOverride>> = overrides.all
+    private val metaSources: Map<Source, MetadataSource> by lazy {
+        listOf(Deezer(), ITunes(), MusicBrainz()).associateBy { it.source }
+    }
+    private var metaJob: Job? = null
     val voice = MutableStateFlow<VoiceState?>(null)
     private val voiceSync by lazy { io.github.atrzad.ayomusica.voice.VoiceSync(application) }
     private var voiceJob: Job? = null
@@ -128,7 +154,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val results: StateFlow<List<Song>> = combine(songs, query.debounce { if (it.isEmpty()) 0L else 180L }) { all, text ->
         Grouping.search(all, text)
     }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    private val byId = derived(emptyMap()) { list -> list.associateBy { it.id } }
+    val byId: StateFlow<Map<Long, Song>> = derived(emptyMap()) { list -> list.associateBy { it.id } }
     /** Sizes of the automatic lists (Curtidas, Mais tocadas...), counted in the background. */
     val autoCounts: StateFlow<Map<AutoList, Int>> = combine(songs, statsStore.all) { list, stats ->
         AutoList.entries.associateWith { it.songs(list, stats).size }
@@ -351,7 +377,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 if (!isActive) break
                 val outcome = withContext(Dispatchers.IO) { runCatching { analyzer.analyze(song) } }
                 val (verdict, proposal) = outcome.getOrElse {
-                    analysis.value = analysis.value.copy(running = false, error = "Sem conexão com o Deezer.")
+                    analysis.value = analysis.value.copy(running = false, error = "Sem conexão com as fontes (Deezer, Apple Music, MusicBrainz).")
                     return@launch
                 }
                 var item = AnalysisItem(song, verdict, proposal)
@@ -368,12 +394,68 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         analysis.value = analysis.value.copy(running = false)
     }
 
-    private suspend fun applyProposal(song: Song, proposal: Proposal): Boolean = withContext(Dispatchers.IO) {
-        val cover = proposal.coverUrl?.let { url ->
-            File(getApplication<Application>().filesDir, "covers/${song.id}.jpg").takeIf { Deezer.download(url, it) }
+    private suspend fun applyProposal(song: Song, proposal: Proposal): Boolean {
+        writeOverride(song.id, proposal.override, proposal.covers, useCover = true)
+        return true
+    }
+
+    /**
+     * Saves [override] for a song, with the first of [covers] that downloads when [useCover]; otherwise keeps the cover
+     * saved before, if any. Each cover gets a new file name so no screen shows the old one from its cache.
+     */
+    private suspend fun writeOverride(id: Long, override: io.github.atrzad.ayomusica.data.SongOverride, covers: List<String>,
+                                      useCover: Boolean) = withContext(Dispatchers.IO) {
+        val previous = overrides.all.value[id]?.coverFile
+        val cover = if (useCover && covers.isNotEmpty()) {
+            File(getApplication<Application>().filesDir, "covers/$id-${System.currentTimeMillis()}.jpg")
+                .takeIf { Http.download(covers, it) }?.absolutePath
+        } else null
+        overrides.put(id, override.copy(coverFile = cover ?: previous))
+        if (cover != null && previous != null && previous != cover) File(previous).delete()
+    }
+
+    /** "Corrigir informações": what the file's own tags say (without the app's correction). */
+    fun originalSong(id: Long): Song? = scanned.value.firstOrNull { it.id == id }
+
+    fun searchMetadata(song: Song, title: String, artist: String, sources: Set<Source>) {
+        metaJob?.cancel()
+        metaSearch.value = MetaSearchState(loading = true)
+        metaJob = viewModelScope.launch {
+            val asked = sources.ifEmpty { Source.entries.toSet() }.toList()
+            val answers = asked.map { source ->
+                async(Dispatchers.IO) { runCatching { metaSources.getValue(source).search(title, artist) } }
+            }.awaitAll()
+            val reading = io.github.atrzad.ayomusica.lyrics.Clean.Reading(artist, title)
+            val found = withContext(Dispatchers.Default) {
+                // The likeliest first (title, artist and duration against this song), whichever source it came from.
+                answers.flatMap { it.getOrDefault(emptyList()) }
+                    .sortedByDescending { Analyzer.score(it, song, listOf(reading) + io.github.atrzad.ayomusica.lyrics.Clean.readings(song)) }
+            }
+            metaSearch.value = MetaSearchState(results = found, searched = true,
+                failed = asked.filterIndexed { index, _ -> answers[index].isFailure })
         }
-        overrides.put(song.id, proposal.override.copy(coverFile = cover?.absolutePath))
-        true
+    }
+
+    suspend fun completeCandidate(candidate: Candidate): Candidate = withContext(Dispatchers.IO) {
+        runCatching { metaSources.getValue(candidate.source).complete(candidate) }.getOrDefault(candidate)
+    }
+
+    fun saveOverride(id: Long, override: io.github.atrzad.ayomusica.data.SongOverride, covers: List<String>, useCover: Boolean) {
+        viewModelScope.launch {
+            writeOverride(id, override, covers, useCover)
+            updateItem(id) { it.copy(applied = true) }
+        }
+    }
+
+    /** Back to what the file's tags say. */
+    fun restoreTags(id: Long) {
+        overrides.remove(id)
+        updateItem(id) { it.copy(applied = false) }
+    }
+
+    fun clearMetaSearch() {
+        metaJob?.cancel()
+        metaSearch.value = MetaSearchState()
     }
 
     fun accept(item: AnalysisItem) {
@@ -387,6 +469,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun undo(item: AnalysisItem) {
         overrides.remove(item.song.id)
         updateItem(item.song.id) { it.copy(applied = false) }
+    }
+
+    /** Accepts every suggestion still waiting for review. */
+    fun acceptAll() {
+        val waiting = analysis.value.items.filter { it.verdict == Verdict.Review && !it.applied && it.proposal != null }
+        viewModelScope.launch {
+            for (item in waiting) {
+                applyProposal(item.song, item.proposal!!)
+                updateItem(item.song.id) { it.copy(applied = true) }
+            }
+        }
     }
 
     fun undoAll() = analysis.value.items.filter { it.applied }.forEach(::undo)

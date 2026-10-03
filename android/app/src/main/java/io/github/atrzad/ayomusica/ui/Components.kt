@@ -99,6 +99,7 @@ class SongActions(
     val remove: ((Int) -> Unit)? = null,
     val isFavorite: (Song) -> Boolean = { false },
     val toggleFavorite: ((Song) -> Unit)? = null,
+    val fixInfo: ((Song) -> Unit)? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -149,6 +150,9 @@ fun SongRow(
                 }
                 actions.goToArtist?.let { go ->
                     DropdownMenuItem(text = { Text("Ir para o artista") }, onClick = { menu = false; go(song) })
+                }
+                actions.fixInfo?.let { fix ->
+                    DropdownMenuItem(text = { Text("Corrigir informações…") }, onClick = { menu = false; fix(song) })
                 }
                 actions.remove?.let { remove ->
                     HorizontalDivider()
