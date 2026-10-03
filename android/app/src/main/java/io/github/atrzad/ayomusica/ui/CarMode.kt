@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -61,7 +62,7 @@ fun CarScreen(
     val threshold = with(LocalDensity.current) { 80.dp.toPx() }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Row(
-            Modifier.fillMaxSize().systemBarsPadding().padding(20.dp).pointerInput(Unit) {
+            Modifier.fillMaxSize().systemBarsPadding().padding(20.dp).systemGestureExclusion().pointerInput(Unit) {
                 var total = 0f
                 detectHorizontalDragGestures(onDragStart = { total = 0f },
                     onDragEnd = { if (total > threshold) player.next() else if (total < -threshold) player.back() }) { change, amount ->

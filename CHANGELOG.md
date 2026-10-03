@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.5 — Gestos certos e modo simplificado com barra
+
+- Gestos do Tocando agora: um arrasto para a direita avança; um para a esquerda volta ao começo da música; dois
+  seguidos para a esquerda voltam uma música. Arrastos que começam na borda da tela não viram mais o "voltar" do
+  Android (que fechava o player ou saía do app).
+- Modo simplificado: a música tocando sai do topo e vira uma barra embaixo, acima das abas, com anterior,
+  tocar/pausar e próxima.
+- Modo normal: o botão de trocar de abas flutua por cima das músicas, sem a faixa de fundo.
+
 ## 0.5.4 — Tutorial
 
 - Android: tutorial "Como usar" na primeira vez que o app abre (e em Configurações → Como usar), com o gesto de

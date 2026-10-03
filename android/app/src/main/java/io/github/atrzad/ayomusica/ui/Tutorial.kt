@@ -65,8 +65,8 @@ private val STEPS = listOf(
             "A aba apontada cresce; solte para abrir. Um toque simples mostra as abas para tocar.",
         Icons.Rounded.TouchApp, listOf(Motion.Fan)),
     Step("Gestos no Tocando agora",
-        "Deslize para a direita: próxima música.\nDeslize para a esquerda: volta ao começo da música; " +
-            "duas vezes seguidas, volta uma música.\nDeslize para baixo: abre a letra.",
+        "Deslize para a direita (uma vez): próxima música.\nDeslize para a esquerda (uma vez): volta ao começo " +
+            "da música; duas vezes seguidas: volta uma música.\nDeslize para baixo: abre a letra.",
         Icons.Rounded.MusicNote, listOf(Motion.Right, Motion.Left, Motion.Down)),
     Step("Aleatório, repetir e curtir",
         "As setas do aleatório se cruzam quando ele está ligado. Repetir: um toque repete a lista ou o álbum, " +
@@ -78,7 +78,7 @@ private val STEPS = listOf(
         Icons.Rounded.Lyrics, listOf(Motion.Up)),
     Step("Modos",
         "Em Configurações → Modo: o modo carro deita a tela e deixa só botões grandes; o modo simplificado troca " +
-            "os gestos por botões e uma barra fixa de abas. Também dá para escolher tema, equalizador e as abas.",
+            "os gestos por botões, com a música tocando numa barra embaixo, acima das abas fixas. Também dá para escolher tema, equalizador e as abas.",
         Icons.Rounded.DirectionsCar, emptyList()),
 )
 

@@ -54,7 +54,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.atrzad.ayomusica.data.Playlist
 import io.github.atrzad.ayomusica.data.Song
 
-private val listPadding = PaddingValues(bottom = 8.dp)
+// Room at the end of every list so the last songs can scroll above the floating tab button.
+private val listPadding = PaddingValues(bottom = 104.dp)
 
 @Composable
 fun PlayButtons(songs: List<Song>, onPlay: (List<Song>, Int, Boolean) -> Unit) {
@@ -141,7 +142,7 @@ fun GroupScreen(group: Group, currentId: String?, actions: SongActions, onPlay: 
 @Composable
 fun AlbumsScreen(albums: List<Album>, onOpen: (Album) -> Unit) {
     if (albums.isEmpty()) return EmptyState("Nenhum álbum", "Os álbuns aparecem conforme as tags das músicas.")
-    LazyVerticalGrid(GridCells.Adaptive(150.dp), contentPadding = PaddingValues(12.dp),
+    LazyVerticalGrid(GridCells.Adaptive(150.dp), contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 104.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         items(albums, key = { it.key }) { album ->
             Column(Modifier.clickable { onOpen(album) }) {

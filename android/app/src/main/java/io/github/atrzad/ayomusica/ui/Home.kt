@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,7 +57,8 @@ fun HomeHeader(ui: PlayerUi, song: Song?, player: PlayerConnection, onSettings: 
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
             Spacer(Modifier.width(12.dp))
             Row(Modifier.weight(1f), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
-                NowPlayingChip(ui, song, player, onOpenPlayer, simple)
+                // Simplified mode shows what is playing in a bar at the bottom instead.
+                if (!simple) NowPlayingChip(ui, song, player, onOpenPlayer)
             }
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
@@ -71,6 +74,7 @@ fun NowPlayingChip(ui: PlayerUi, song: Song?, player: PlayerConnection, onOpen: 
     Row(
         Modifier.graphicsLayer { translationX = slide.value; alpha = 1f - abs(slide.value) / 300f }
             .clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .systemGestureExclusion()  // its swipe must not become Android's "back"
             .pointerInput(Unit) {
                 var total = 0f
                 detectHorizontalDragGestures(
@@ -113,6 +117,30 @@ fun PageHeader(title: String, onBack: () -> Unit, actions: @Composable () -> Uni
             actions()
         }
         HorizontalDivider()
+    }
+}
+
+/** Simplified mode: what is playing, as a bar above the tabs, with buttons (no gestures needed). */
+@Composable
+fun NowPlayingBar(ui: PlayerUi, song: Song?, player: PlayerConnection, onOpen: () -> Unit) {
+    val item = ui.current ?: return
+    Row(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onOpen).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Cover(song?.artUri ?: item.localConfiguration?.uri, 44.dp)
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(song?.title ?: item.title(), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Text(song?.shownArtist ?: item.artist(), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = player::previous) { Icon(Icons.Rounded.SkipPrevious, "Música anterior") }
+        IconButton(onClick = player::toggle) {
+            Icon(if (ui.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (ui.isPlaying) "Pausar" else "Tocar")
+        }
+        IconButton(onClick = { player.next() }) { Icon(Icons.Rounded.SkipNext, "Próxima música") }
     }
 }
 

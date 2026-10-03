@@ -210,12 +210,16 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             },
             bottomBar = {
                 if (home != null && useMode == UseMode.Simple) {
-                    FixedTabs(tabs, tab) { viewModel.open(Route.Home(it)) }
+                    Column {
+                        NowPlayingBar(ui, current, viewModel.player) { viewModel.show(Screen.Player) }
+                        FixedTabs(tabs, tab) { viewModel.open(Route.Home(it)) }
+                    }
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->
-            Column(Modifier.padding(padding).padding(bottom = if (home != null && useMode == UseMode.Normal) 84.dp else 0.dp)) {
+            // In normal mode the tab button floats over the list (the lists leave room at their end).
+            Column(Modifier.padding(padding)) {
                 if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 when (route) {
                     is Route.Home -> when (route.tab) {

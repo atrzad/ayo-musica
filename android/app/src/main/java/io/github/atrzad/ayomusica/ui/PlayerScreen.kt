@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Favorite
@@ -89,6 +90,7 @@ fun PlayerScreen(
     val slide = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val threshold = with(LocalDensity.current) { 72.dp.toPx() }
+    val bandPx = with(LocalDensity.current) { 200.dp.toPx() }
     val title = song?.title ?: item?.title().orEmpty()
     val subtitle = song?.let { "${it.shownArtist} - ${it.shownAlbum}" } ?: item?.artist().orEmpty()
 
@@ -98,7 +100,8 @@ fun PlayerScreen(
                 SpectrumBackground(sessionId, Modifier.fillMaxWidth().fillMaxHeight(0.55f).align(Alignment.BottomCenter))
             }
             Column(
-                Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 20.dp)
+                // The swipes count from the screen edges too (the side margin comes after the gesture).
+                Modifier.fillMaxSize().systemBarsPadding()
                     .pointerInput(Unit) {
                         var total = androidx.compose.ui.geometry.Offset.Zero
                         detectDragGestures(
@@ -118,7 +121,8 @@ fun PlayerScreen(
                             change.consume()
                             scope.launch { slide.snapTo((total.x * 0.35f).coerceIn(-160f, 160f)) }
                         }
-                    },
+                    }
+                    .padding(horizontal = 20.dp),
             ) {
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Voltar") }
@@ -141,7 +145,15 @@ fun PlayerScreen(
                             tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                     }
                 }
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                // Android's own "back" gesture starts at the screen edges: keep a band across the cover for our
+                // swipes (the system honors up to 200 dp per edge).
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp)
+                    .systemGestureExclusion { coordinates ->
+                        val band = bandPx
+                        val middle = coordinates.size.height / 2f
+                        // The player has side margins: reach past them to the screen edges, where the system gesture starts.
+                        androidx.compose.ui.geometry.Rect(-bandPx, middle - band / 2, coordinates.size.width + bandPx, middle + band / 2)
+                    }, contentAlignment = Alignment.Center) {
                     val side = minOf(maxWidth, maxHeight)
                     val px = with(LocalDensity.current) { side.roundToPx() }.coerceAtMost(1024)
                     Cover(song?.artUri ?: item?.localConfiguration?.uri,

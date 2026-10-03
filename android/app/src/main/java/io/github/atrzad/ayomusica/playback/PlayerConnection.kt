@@ -150,12 +150,17 @@ class PlayerConnection(private val context: Context) {
 
     private var lastBack = 0L
 
-    /** The "back" gesture: once restarts the song, twice in a row goes to the previous one. */
+    /** The "back" gesture: once restarts the song, a second time right after goes to the previous one. */
     fun back() {
         val player = controller ?: return
         val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastBack < 2500 || player.currentPosition < 2500) player.seekToPreviousMediaItem() else player.seekTo(0)
-        lastBack = now
+        if (now - lastBack < 3000) {
+            player.seekToPreviousMediaItem()
+            lastBack = 0
+        } else {
+            player.seekTo(0)
+            lastBack = now
+        }
     }
 
     fun seekTo(ms: Long) = controller?.seekTo(ms.coerceAtLeast(0))

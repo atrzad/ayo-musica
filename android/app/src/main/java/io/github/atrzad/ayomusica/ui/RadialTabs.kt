@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -129,7 +130,9 @@ fun RadialTabs(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit, modifier:
             }
         }
         Box(
-            Modifier.padding(bottom = 12.dp).size(62.dp).clip(CircleShape)
+            Modifier.padding(bottom = 12.dp).size(62.dp)
+                .shadow(10.dp, CircleShape)  // floating over the list
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary)
                 .pointerInput(tabs) {
                     awaitEachGesture {
