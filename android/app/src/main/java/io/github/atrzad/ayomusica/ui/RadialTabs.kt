@@ -1,6 +1,8 @@
 package io.github.atrzad.ayomusica.ui
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +43,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -55,8 +59,9 @@ fun Tab.icon(): ImageVector = when (this) {
 }
 
 /**
- * The round button at the bottom: hold and drag toward a tab to open it (with the default tabs:
- * ← Músicas, ↖ Playlists, ↑ Álbuns, ↗ Artistas). A tap shows the tabs to tap instead.
+ * The round button at the bottom: hold and drag toward a tab to open it. The tabs open as a fan centered
+ * above the button, however many there are; the direction of the drag picks one (no exact spot to hit),
+ * and the one pointed at grows. A tap shows the tabs to tap instead.
  */
 @Composable
 fun RadialTabs(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modifier) {
@@ -64,37 +69,59 @@ fun RadialTabs(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit, modifier:
     var dragging by remember { mutableStateOf(false) }
     var drag by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
-    val radius = with(density) { 118.dp.toPx() }
-    // 45° apart starting at the left; six tabs share the half circle.
-    val step = if (tabs.size <= 5) 45.0 else 180.0 / (tabs.size - 1)
-    val positions = tabs.indices.map { i ->
-        val angle = Math.toRadians(180.0 - i * step)
-        Offset((cos(angle) * radius).toFloat(), (-sin(angle) * radius).toFloat())
+    val radius = with(density) { (if (tabs.size > 4) 128.dp else 116.dp).toPx() }
+    val minDrag = with(density) { 28.dp.toPx() }
+    // A fan centered on "straight up": wider with more tabs, never wider than 160°.
+    val span = if (tabs.size <= 1) 0.0 else minOf(160.0, 46.0 * (tabs.size - 1))
+    val angles = tabs.indices.map { i -> 90.0 + span / 2 - if (tabs.size <= 1) 0.0 else i * span / (tabs.size - 1) }
+    val positions = angles.map { angle ->
+        val radians = Math.toRadians(angle)
+        Offset((cos(radians) * radius).toFloat(), (-sin(radians) * radius).toFloat())
     }
-    fun hovered(): Int? = positions.indices.minByOrNull { (positions[it] - drag).getDistance() }
-        ?.takeIf { drag.getDistance() > radius * 0.35f && (positions[it] - drag).getDistance() < radius * 0.6f }
+    /** The tab in the direction of the drag (closest angle), once the finger has moved a little. */
+    fun hovered(): Int? {
+        if (drag.getDistance() < minDrag || drag.y > minDrag) return null
+        val angle = Math.toDegrees(atan2(-drag.y.toDouble(), drag.x.toDouble()))
+        return angles.indices.minByOrNull { abs(angles[it] - angle) }
+    }
     val grow by animateFloatAsState(if (open) 1f else 0f, label = "radial")
+    val pointed = if (dragging) hovered() else null
 
-    Box(modifier.fillMaxWidth().height(if (open) 230.dp else 84.dp), contentAlignment = Alignment.BottomCenter) {
+    Box(modifier.fillMaxWidth().height(if (open) 250.dp else 84.dp), contentAlignment = Alignment.BottomCenter) {
         if (open || grow > 0f) {
             tabs.forEachIndexed { index, tab ->
-                val p = positions[index] * grow
-                val hot = (dragging && hovered() == index) || (!dragging && tab == current)
+                val hot = pointed == index
+                val selected = !dragging && tab == current
+                // The one pointed at grows and moves out a bit; the others step back.
+                val emphasis by animateFloatAsState(
+                    when {
+                        hot -> 1.35f
+                        pointed != null -> 0.85f
+                        else -> 1f
+                    },
+                    spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                    label = "tab",
+                )
+                val reach = if (hot) 1.12f else 1f
+                val p = positions[index] * grow * reach
                 Column(
-                    Modifier.padding(bottom = 10.dp)
+                    Modifier.padding(bottom = 18.dp)
                         .offset { IntOffset(p.x.roundToInt(), p.y.roundToInt()) }
-                        .scale(0.6f + 0.4f * grow)
+                        .scale((0.6f + 0.4f * grow) * emphasis)
                         .clickable(enabled = open && !dragging) { open = false; onSelect(tab) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(
-                        Modifier.size(if (hot) 58.dp else 50.dp).clip(CircleShape)
-                            .background(if (hot) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest)
+                        Modifier.size(52.dp).clip(CircleShape)
+                            .background(when {
+                                hot || selected -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                            })
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(tab.icon(), tab.title,
-                            tint = if (hot) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+                            tint = if (hot || selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                     }
                     Text(tab.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (hot) FontWeight.Bold else FontWeight.Normal)
@@ -120,9 +147,10 @@ fun RadialTabs(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit, modifier:
                             if (drag.getDistance() > viewConfiguration.touchSlop) moved = true
                             change.consume()
                         }
+                        val choice = hovered()
                         dragging = false
                         if (moved) {
-                            hovered()?.let { onSelect(tabs[it]) }
+                            choice?.let { onSelect(tabs[it]) }
                             open = false
                         } else {
                             open = !wasOpen  // a tap opens the tabs to tap (or closes them)

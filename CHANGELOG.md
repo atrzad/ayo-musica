@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 — Botão de abas
+
+- Android: as abas abrem em leque centralizado acima do botão redondo, com qualquer número de abas; a direção do
+  arraste escolhe a aba (não precisa acertar o ponto) e a aba apontada cresce, destacada.
+
 ## 0.5.0 — Novo app Android e letras que funcionam
 
 - **Android redesenhado** a partir do esboço: título AYO PLAYER (abre as Configurações), a música tocando no
