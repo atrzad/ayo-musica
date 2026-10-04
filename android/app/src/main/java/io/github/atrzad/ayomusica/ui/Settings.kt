@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.setValue
@@ -54,6 +56,7 @@ import io.github.atrzad.ayomusica.data.Song
 
 private fun SettingsPage.icon(): ImageVector = when (this) {
     SettingsPage.Tutorial -> Icons.Rounded.TouchApp
+    SettingsPage.Report -> Icons.Rounded.BugReport
     SettingsPage.Analyzer -> Icons.Rounded.AutoFixHigh
     SettingsPage.Equalizer -> Icons.Rounded.Equalizer
     SettingsPage.UseModes -> Icons.Rounded.DirectionsCar
@@ -64,6 +67,7 @@ private fun SettingsPage.icon(): ImageVector = when (this) {
 
 private fun SettingsPage.detail(): String = when (this) {
     SettingsPage.Tutorial -> "Os gestos e botões do app, passo a passo"
+    SettingsPage.Report -> "Envie o registro do app quando algo der errado"
     SettingsPage.Analyzer -> "Busca título, artista, álbum, ano e capa oficial das músicas"
     SettingsPage.Equalizer -> "Ajustar, ligar e desligar"
     SettingsPage.UseModes -> "Normal, carro, simplificado e tela cheia"
@@ -123,6 +127,48 @@ fun UseModePage(current: UseMode, onSelect: (UseMode) -> Unit, fullscreen: Boole
                 }
             }
         }
+    }
+}
+
+/** Relatório de erros: the app's diary, ready to send (by e-mail, WhatsApp...) when something went wrong. */
+@Composable
+fun ReportPage(lastProblem: String?) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var cleared by remember { mutableStateOf(false) }
+    fun share() {
+        busy = true
+        scope.launch {
+            val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                io.github.atrzad.ayomusica.util.AppLog.report(context)
+            }
+            busy = false
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "Relatório de erros do Ayo Música")
+                putExtra(android.content.Intent.EXTRA_TEXT, "Relatório de erros do Ayo Música (arquivo anexo). O que aconteceu: ")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(send, "Enviar relatório"))
+        }
+    }
+    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("O app guarda um registro do que fez e dos erros (inclusive por que fechou sozinho, quando o Android " +
+            "informa). Se algo der errado, envie o relatório e diga o que estava fazendo. Ele contém o modelo do " +
+            "celular, a versão do Android e os nomes das músicas que apareceram nos erros; nada sai do celular sem você enviar.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (lastProblem != null) {
+            Text("Da última vez o app fechou sozinho: $lastProblem.", color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.SemiBold)
+        }
+        Button(onClick = ::share, Modifier.fillMaxWidth(), enabled = !busy) {
+            Text(if (busy) "Preparando o relatório…" else "Enviar relatório")
+        }
+        OutlinedButton(onClick = { io.github.atrzad.ayomusica.util.AppLog.clear(); cleared = true },
+            Modifier.fillMaxWidth()) { Text(if (cleared) "Registro apagado" else "Apagar o registro") }
     }
 }
 

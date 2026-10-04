@@ -40,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -65,7 +66,7 @@ sealed interface LyricsUi {
 }
 
 enum class SettingsPage(val title: String) {
-    Tutorial("Como usar"), Analyzer("Analisador de músicas"), Equalizer("Equalizador"), UseModes("Modo"), Themes("Temas"),
+    Tutorial("Como usar"), Report("Relatório de erros"), Analyzer("Analisador de músicas"), Equalizer("Equalizador"), UseModes("Modo"), Themes("Temas"),
     HomeTabs("Página inicial"), LyricsSettings("Letras")
 }
 
@@ -398,13 +399,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val song = songOf(player.ui.value.current) ?: return
         val shown = (lyrics.value as? LyricsUi.Shown)?.lyrics ?: return
         val plain = shown.copy(lines = shown.lines.map { Lyrics.Line(null, it.text) }, synced = false)
-        voiceJob?.cancel()
+        val previous = voiceJob
         if (!voiceSync.supported) {
+            io.github.atrzad.ayomusica.util.AppLog.w("Voz", "processador sem as instruções da voz")
             voice.value = VoiceState("O processador deste celular não tem as instruções que a sincronização pela voz usa. " +
                 "Use Sincronizar tocando, que marca cada linha na hora.", running = false)
             return
         }
         voiceJob = viewModelScope.launch {
+            // Only one voice job at a time: the previous one is stopped and waited for (it runs in native code).
+            previous?.let { voiceSync.cancel(); it.cancelAndJoin() }
             try {
                 if (!voiceSync.hasModel) {
                     voice.value = VoiceState("Baixando o modelo de voz (60 MB, só desta vez)…", 0f)
@@ -427,6 +431,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     "Se alguma linha ficar adiantada ou atrasada, use −0,5 / +0,5.", running = false)
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
+                io.github.atrzad.ayomusica.util.AppLog.e("Voz", "sincronizar falhou", error)
                 voice.value = VoiceState(if (error.message == "Cancelado") "Sincronização cancelada."
                     else "Não deu para sincronizar: ${error.message ?: "erro"}", running = false)
             }
@@ -436,13 +441,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     /** No lyrics found anywhere: transcribe them from the singing (same model as syncing by voice). */
     fun transcribeByVoice() {
         val song = songOf(player.ui.value.current) ?: return
-        voiceJob?.cancel()
+        val previous = voiceJob
         if (!voiceSync.supported) {
             voice.value = VoiceState("O processador deste celular não tem as instruções que a transcrição pela voz usa.",
                 running = false)
             return
         }
         voiceJob = viewModelScope.launch {
+            previous?.let { voiceSync.cancel(); it.cancelAndJoin() }
             try {
                 if (!voiceSync.hasModel) {
                     voice.value = VoiceState("Baixando o modelo de voz (60 MB, só desta vez)…", 0f)
@@ -463,6 +469,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     "se achar a letra certa depois, use Buscar letra.", running = false)
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
+                io.github.atrzad.ayomusica.util.AppLog.e("Voz", "transcrever falhou", error)
                 voice.value = VoiceState(if (error.message == "Cancelado") "Transcrição cancelada."
                     else "Não deu para transcrever: ${error.message ?: "erro"}", running = false)
             }
@@ -510,7 +517,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 for ((index, song) in targets.withIndex()) {
                     if (!isActive) break
                     val outcome = withContext(Dispatchers.IO) { runCatching { analyzer.analyze(song) } }
-                    val (verdict, proposal) = outcome.getOrElse {
+                    val (verdict, proposal) = outcome.getOrElse { error ->
+                        io.github.atrzad.ayomusica.util.AppLog.e("Analisador", "parou em ${song.id}", error)
                         analysis.update {
                             it.copy(running = false, error = "Sem conexão com as fontes (Deezer, Apple Music, MusicBrainz). " +
                                 "O que já foi analisado ficou salvo.")
@@ -599,6 +607,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         metaSearch.value = MetaSearchState(loading = true)
         metaJob = viewModelScope.launch {
             val heard = withContext(Dispatchers.IO) { runCatching { audioId.identify(song) } }
+            heard.exceptionOrNull()?.let { io.github.atrzad.ayomusica.util.AppLog.w("PeloSom", "reconhecer ${song.id} falhou", it) }
             metaSearch.value = MetaSearchState(results = heard.getOrDefault(emptyList()), searched = true,
                 failed = if (heard.isFailure) listOf(Source.Shazam) else emptyList(),
                 note = heard.exceptionOrNull()?.message)

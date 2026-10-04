@@ -15,7 +15,7 @@ object AudioDecoder {
 
     /** The whole song, or only [lengthMs] from [fromMs] (recognizing by the sound needs a few seconds, not all). */
     fun decode(context: Context, uri: Uri, cancelled: () -> Boolean = { false }, fromMs: Long = 0,
-               lengthMs: Long = MAX_SECONDS * 1000L): FloatArray {
+               lengthMs: Long = MAX_SECONDS * 1000L, progress: ((Float) -> Unit)? = null): FloatArray {
         val extractor = MediaExtractor()
         extractor.setDataSource(context, uri, null)
         val track = (0 until extractor.trackCount).firstOrNull {
@@ -28,7 +28,12 @@ object AudioDecoder {
         val codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
         codec.configure(format, null, null, 0)
         codec.start()
-        val out = FloatArrayBuilder(RATE * 240)
+        // Room for the whole stretch up front (no copies while growing).
+        val seconds = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1_000_000 else 240
+        val out = FloatArrayBuilder((minOf(limit, RATE * (seconds + 2)) + RATE).toInt())
+        var floats = FloatArray(0)
+        var shortsRead = ShortArray(0)
+        var lastReported = -1
         var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
         var rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
         var floatPcm = false
@@ -39,8 +44,10 @@ object AudioDecoder {
         var inputDone = false
         try {
             while (!cancelled()) {
+                // Never wait while there is work: waiting 10 ms per audio frame made a 4-minute song take over a minute.
+                var fed = false
                 if (!inputDone) {
-                    val index = codec.dequeueInputBuffer(10_000)
+                    val index = codec.dequeueInputBuffer(0)
                     if (index >= 0) {
                         val buffer = codec.getInputBuffer(index)!!
                         val size = extractor.readSampleData(buffer, 0)
@@ -51,9 +58,10 @@ object AudioDecoder {
                             codec.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
                             extractor.advance()
                         }
+                        fed = true
                     }
                 }
-                val index = codec.dequeueOutputBuffer(info, 10_000)
+                val index = codec.dequeueOutputBuffer(info, if (fed) 0 else 5_000)
                 when {
                     index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         val output = codec.outputFormat
@@ -67,33 +75,40 @@ object AudioDecoder {
                         buffer.position(info.offset)
                         buffer.limit(info.offset + info.size)
                         val step = rate.toDouble() / RATE
+                        // Read the whole buffer at once and mix/resample in one tight loop (millions of samples).
+                        val count: Int
                         if (floatPcm) {
-                            val floats = buffer.asFloatBuffer()
-                            while (floats.remaining() >= channels) {
-                                var sum = 0f
-                                repeat(channels) { sum += floats.get() }
-                                val sample = sum / channels
-                                while (position <= inputFrames) {  // linear interpolation to 16 kHz
-                                    val t = (position - (inputFrames - 1)).toFloat()
-                                    out.add(previous + (sample - previous) * t.coerceIn(0f, 1f))
-                                    position += step
-                                }
-                                previous = sample
-                                inputFrames++
-                            }
+                            val source = buffer.asFloatBuffer()
+                            count = source.remaining()
+                            if (floats.size < count) floats = FloatArray(count)
+                            source.get(floats, 0, count)
                         } else {
-                            val shorts = buffer.asShortBuffer()
-                            while (shorts.remaining() >= channels) {
-                                var sum = 0f
-                                repeat(channels) { sum += shorts.get() / 32768f }
-                                val sample = sum / channels
-                                while (position <= inputFrames) {
-                                    val t = (position - (inputFrames - 1)).toFloat()
-                                    out.add(previous + (sample - previous) * t.coerceIn(0f, 1f))
-                                    position += step
-                                }
-                                previous = sample
-                                inputFrames++
+                            val source = buffer.asShortBuffer()
+                            count = source.remaining()
+                            if (shortsRead.size < count) shortsRead = ShortArray(count)
+                            source.get(shortsRead, 0, count)
+                            if (floats.size < count) floats = FloatArray(count)
+                            for (i in 0 until count) floats[i] = shortsRead[i] / 32768f
+                        }
+                        var i = 0
+                        while (i + channels <= count) {
+                            var sum = 0f
+                            for (c in 0 until channels) sum += floats[i + c]
+                            val sample = sum / channels
+                            while (position <= inputFrames) {  // linear interpolation to 16 kHz
+                                val t = (position - (inputFrames - 1)).toFloat().coerceIn(0f, 1f)
+                                out.add(previous + (sample - previous) * t)
+                                position += step
+                            }
+                            previous = sample
+                            inputFrames++
+                            i += channels
+                        }
+                        progress?.let { report ->
+                            val second = out.size / RATE
+                            if (second != lastReported) {  // about once per second of audio
+                                lastReported = second
+                                report((out.size.toFloat() / out.capacity).coerceIn(0f, 1f))
                             }
                         }
                         codec.releaseOutputBuffer(index, false)
@@ -116,6 +131,7 @@ object AudioDecoder {
 
     private class FloatArrayBuilder(capacity: Int) {
         private var data = FloatArray(capacity)
+        val capacity: Int get() = data.size
         var size = 0
             private set
 

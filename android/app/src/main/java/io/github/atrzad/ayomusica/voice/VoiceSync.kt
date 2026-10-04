@@ -10,6 +10,7 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import io.github.atrzad.ayomusica.util.AppLog
 
 /**
  * Syncs plain lyrics by listening to the song with whisper.cpp on the phone. The voice model (about 60 MB)
@@ -25,7 +26,10 @@ class VoiceSync(private val context: Context) {
     val supported: Boolean by lazy {
         val features = runCatching { File("/proc/cpuinfo").readText() }.getOrDefault("")
         when (android.os.Build.SUPPORTED_ABIS.firstOrNull()) {
-            "arm64-v8a" -> "asimddp" in features && ("asimdhp" in features || "fphp" in features)
+            // Every core must have them: some phones mix cores with and without, and a core without would crash.
+            "arm64-v8a" -> features.lines().filter { it.startsWith("Features") }.let { cores ->
+                cores.isNotEmpty() && cores.all { "asimddp" in it && ("asimdhp" in it || "fphp" in it) }
+            }
             "x86_64" -> " avx " in " ${features.replace('\n', ' ')} " || "avx" in features
             else -> false
         }
@@ -73,14 +77,17 @@ class VoiceSync(private val context: Context) {
     suspend fun sync(song: Song, plain: Lyrics, progress: (Stage, Float) -> Unit): Pair<Lyrics, Double>? =
         withContext(Dispatchers.Default) {
             cancelled = false
+            AppLog.i("Voz", "sincronizar ${song.id} (${song.durationMs / 1000} s), ${plain.lines.size} linhas, " +
+                "idioma ${Align.language(plain.text)}, ${AppLog.memory()}")
             progress(Stage.Decode, -1f)
-            val audio = AudioDecoder.decode(context, song.uri, cancelled = { cancelled })
+            val audio = AudioDecoder.decode(context, song.uri, cancelled = { cancelled }, progress = { progress(Stage.Decode, it) })
             if (cancelled) throw IOException("Cancelado")
+            AppLog.i("Voz", "áudio lido: ${audio.size / 16_000} s; ${AppLog.memory()}")
             progress(Stage.Listen, 0f)
             val handle = Whisper.load(model.absolutePath)
             if (handle == 0L) throw IOException("Não deu para abrir o modelo de voz. Baixe de novo.")
             val tokens = try {
-                val threads = Runtime.getRuntime().availableProcessors().coerceIn(2, 6)
+                val threads = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 4)  // cores left for the screen
                 Whisper.transcribe(handle, audio, Align.language(plain.text), threads) { percent ->
                     progress(Stage.Listen, percent / 100f)
                 }
@@ -89,20 +96,24 @@ class VoiceSync(private val context: Context) {
             }
             if (cancelled || tokens == null) throw IOException("Cancelado")
             progress(Stage.Align, -1f)
-            Align.align(plain, Align.words(tokens))?.takeIf { it.second >= 0.2 }
+            val words = Align.words(tokens)
+            Align.align(plain, words).also { result ->
+                AppLog.i("Voz", "ouviu ${words.size} palavras; encaixou ${result?.second?.let { (it * 100).toInt() } ?: 0}%")
+            }?.takeIf { it.second >= 0.2 }
         }
 
     /** No lyrics anywhere: writes them down from the singing itself, with times. Null when nothing like lyrics was heard. */
     suspend fun transcribe(song: Song, progress: (Stage, Float) -> Unit): Lyrics? = withContext(Dispatchers.Default) {
         cancelled = false
+        AppLog.i("Voz", "transcrever ${song.id} (${song.durationMs / 1000} s), ${AppLog.memory()}")
         progress(Stage.Decode, -1f)
-        val audio = AudioDecoder.decode(context, song.uri, cancelled = { cancelled })
+        val audio = AudioDecoder.decode(context, song.uri, cancelled = { cancelled }, progress = { progress(Stage.Decode, it) })
         if (cancelled) throw IOException("Cancelado")
         progress(Stage.Listen, 0f)
         val handle = Whisper.load(model.absolutePath)
         if (handle == 0L) throw IOException("Não deu para abrir o modelo de voz. Baixe de novo.")
         val tokens = try {
-            val threads = Runtime.getRuntime().availableProcessors().coerceIn(2, 6)
+            val threads = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 4)  // cores left for the screen
             // Whisper guesses the language from the first 30 s, often an instrumental intro, and then hears nothing.
             // So the language comes from 30 s in the middle of the song (where someone is usually singing) first.
             val rate = 16_000

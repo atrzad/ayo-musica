@@ -118,6 +118,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val mode by prefs.mode.collectAsStateWithLifecycle()
     val lyricsOnline by prefs.lyricsOnline.collectAsStateWithLifecycle()
     val fullscreen by prefs.fullscreen.collectAsStateWithLifecycle()
+    val lastExit by io.github.atrzad.ayomusica.util.AppLog.lastExitProblem.collectAsStateWithLifecycle()
     val shazamOn by prefs.shazam.collectAsStateWithLifecycle()
     val acoustidKey by prefs.acoustidKey.collectAsStateWithLifecycle()
     val tutorialSeen by prefs.tutorialSeen.collectAsStateWithLifecycle()
@@ -131,6 +132,13 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     fun tell(text: String) = scope.launch { snackbar.showSnackbar(text) }
+    // The app closed by itself last time: offer to send the report (once per problem).
+    LaunchedEffect(lastExit) {
+        val problem = lastExit ?: return@LaunchedEffect
+        val answer = snackbar.showSnackbar("O app fechou sozinho da última vez ($problem).", actionLabel = "Enviar relatório",
+            withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Long)
+        if (answer == androidx.compose.material3.SnackbarResult.ActionPerformed) viewModel.open(Route.SettingsOf(SettingsPage.Report))
+    }
 
     val askMicrophone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         prefs.setVisualizer(ok)
@@ -251,7 +259,10 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     }
                 }
             },
-            snackbarHost = { SnackbarHost(snackbar) },
+            // Above the floating tab button when it shows (it would cover the message's button).
+            snackbarHost = {
+                SnackbarHost(snackbar, Modifier.padding(bottom = if (home != null && useMode == UseMode.Normal && selection == null) 84.dp else 0.dp))
+            },
         ) { padding ->
             // In normal mode the tab button floats over the list (the lists leave room at their end).
             Column(Modifier.padding(padding)) {
@@ -307,6 +318,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     Route.Settings -> SettingsScreen({ viewModel.open(Route.SettingsOf(it)) }, version)
                     is Route.SettingsOf -> when (route.page) {
                         SettingsPage.Tutorial -> Unit  // shown full screen above
+                        SettingsPage.Report -> ReportPage(lastExit)
                         SettingsPage.Analyzer -> AnalyzerPage(analysis, analysisItems, analyzerCounts, viewModel::analyze,
                             viewModel::stopAnalysis, viewModel::accept, viewModel::undo, viewModel::undoAll, viewModel::acceptAll,
                             onSearch = { openFix(it.song.id) }, onIgnore = { viewModel.ignore(it); tell("Ignorada: não aparece mais") },

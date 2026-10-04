@@ -60,7 +60,8 @@ class LyricsRepository(private val folder: File, private val finder: LyricsFinde
                 if (plain == null && found != null && !found.plainLyrics.isNullOrBlank()) {
                     plain = Lyrics.parse(found.plainLyrics, found.source)
                 }
-            } catch (_: IOException) {
+            } catch (error: IOException) {
+                io.github.atrzad.ayomusica.util.AppLog.w("Letras", "busca on-line falhou para ${song.id}: ${error.message}")
                 if (plain == null) return@withContext Result.Offline
             }
         }

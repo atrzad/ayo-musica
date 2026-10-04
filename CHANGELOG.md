@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.0 — Relatório de erros e sincronização pela voz estável (Android)
+
+A partir daqui: funcionalidade nova sobe a versão inteira (2.0.0…), correção sobe 0.1 (1.1.0…).
+
+- Relatório de erros (Configurações → Relatório de erros): o app guarda um diário do que fez e dos erros, o rastro
+  dos travamentos e, ao abrir de novo, por que o Android o fechou (erro nativo, falta de memória, sem resposta).
+  "Enviar relatório" anexa tudo (com o log do sistema do próprio app) a um e-mail, WhatsApp etc. Depois de um
+  fechamento inesperado, o app oferece enviar ao abrir.
+- Sincronizar e transcrever pela voz não derrubam mais o app:
+  - o texto do modelo vinha às vezes com um caractere acentuado partido entre dois pedaços (ou com emoji), e a
+    ponte nativa passava isso de um jeito que o Android encerra o app; agora os caracteres são remontados e o
+    texto vem como bytes;
+  - uma sincronização nova espera a anterior parar de verdade (antes as duas podiam rodar juntas e uma apagava o
+    que a outra usava);
+  - a checagem do processador exige as instruções da voz em todos os núcleos (há celulares que misturam núcleos com
+    e sem elas, e um núcleo sem elas fechava o app);
+  - no máximo 4 núcleos para a voz, deixando o resto para a tela.
+- Ler o áudio para a voz ficou cerca de 4 vezes mais rápido e mostra o progresso (antes parecia travado).
+- Avisos aparecem acima do botão flutuante de abas.
+
 ## 0.10.0 — Reconhecer pelo som: Shazam e AcoustID (Android)
 
 - Shazam: quando as tags não bastam, o Analisador reconhece 12 segundos do meio da música (só a impressão digital do

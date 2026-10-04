@@ -27,6 +27,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        io.github.atrzad.ayomusica.util.AppLog.init(this)
         store = QueueStore(this)
         stats = Stats.get(this)
         val player = ExoPlayer.Builder(this)
@@ -82,6 +83,11 @@ class PlaybackService : MediaSessionService() {
                     else -> { skipping = 0; return false }
                 }
                 return true
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                io.github.atrzad.ayomusica.util.AppLog.e("Player", "erro ao tocar ${player.currentMediaItem?.mediaId}: " +
+                    error.errorCodeName, error)
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
