@@ -52,13 +52,13 @@ class LyricsRepository(private val folder: File, private val finder: LyricsFinde
         if (online && !recentlyChecked && song.title.isNotBlank()) {
             try {
                 val found = finder.find(song)
-                write(song, LyricsEntry(found?.syncedLyrics.orEmpty(), found?.plainLyrics.orEmpty(), "lrclib",
+                write(song, LyricsEntry(found?.syncedLyrics.orEmpty(), found?.plainLyrics.orEmpty(), found?.source ?: "lrclib",
                     System.currentTimeMillis(), offset))
                 if (found != null && found.synced) {
-                    return@withContext Result.Found(Lyrics.parse(found.syncedLyrics, "lrclib").copy(offsetMs = offset))
+                    return@withContext Result.Found(Lyrics.parse(found.syncedLyrics, found.source).copy(offsetMs = offset))
                 }
                 if (plain == null && found != null && !found.plainLyrics.isNullOrBlank()) {
-                    plain = Lyrics.parse(found.plainLyrics, "lrclib")
+                    plain = Lyrics.parse(found.plainLyrics, found.source)
                 }
             } catch (_: IOException) {
                 if (plain == null) return@withContext Result.Offline
@@ -105,6 +105,6 @@ class LyricsRepository(private val folder: File, private val finder: LyricsFinde
     companion object {
         const val RETRY_MS = 3L * 24 * 3600 * 1000
         /** Sources that came from the person: never replaced by an automatic search. */
-        val CHOSEN = setOf("escolhida", "manual", "voz")
+        val CHOSEN = setOf("escolhida", "manual", "voz", "transcrita")
     }
 }

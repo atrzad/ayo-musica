@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0 — Mais fontes de letras e transcrição pela voz (Android)
+
+- Letras: além do LRCLIB, o NetEase (letras sincronizadas de um catálogo enorme, inclusive músicas brasileiras como
+  Djavan e Anitta) e o lyrics.ovh (texto, como último recurso). A busca manual mostra LRCLIB e NetEase juntos, com a
+  fonte de cada resultado.
+- Transcrever pela voz: quando nenhuma fonte tem a letra, o app escreve a letra a partir do canto, já com os tempos,
+  no próprio celular (mesmo modelo da sincronização pela voz; funciona sem internet). Pode ter palavras erradas.
+- O idioma da transcrição vem do que o modelo detecta no meio da música (a introdução costuma ser instrumental).
+- Sincronização e transcrição pela voz ignoram as anotações do modelo, como “[Música]”.
+
 ## 0.8.0 — Analisador que lembra, AMOLED, tela cheia e lista negra do aleatório (Android)
 
 - Analisador: os resultados ficam salvos; "Continuar análise" segue de onde parou e só procura as músicas ainda não

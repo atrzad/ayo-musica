@@ -2,14 +2,20 @@ package io.github.atrzad.ayomusica.lyrics
 
 import io.github.atrzad.ayomusica.data.Song
 import io.github.atrzad.ayomusica.data.fold
+import java.io.IOException
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
 /**
- * Finds a song's lyrics on LRCLIB trying several readings of messy tags, and scores what comes back by
- * title, artist and duration. Synced lyrics win over plain ones of the same song.
+ * Finds a song's lyrics trying several readings of messy tags, and scores what comes back by title, artist and
+ * duration. LRCLIB first, then NetEase for synced lyrics, then lyrics.ovh for plain text. Synced lyrics win over
+ * plain ones of the same song.
  */
-class LyricsFinder(private val lrcLib: LrcLib = LrcLib()) {
+class LyricsFinder(
+    private val lrcLib: LrcLib = LrcLib(),
+    private val netease: Netease? = Netease(),
+    private val ovh: LyricsOvh? = LyricsOvh(),
+) {
     data class Match(val result: LrcLibResult, val score: Int)
 
     fun find(song: Song): LrcLibResult? {
@@ -35,14 +41,48 @@ class LyricsFinder(private val lrcLib: LrcLib = LrcLib()) {
             candidates += lrcLib.search("${reading.artist} ${reading.title}".trim())
             good()?.let { return it.result }
         }
-        return candidates.mapNotNull { score(it, song, readings) }.filter { it.score >= ACCEPT }
-            .maxByOrNull { it.score }?.result
+        // NetEase: synced lyrics LRCLIB does not have. Only the likely songs get their lyrics fetched.
+        val netease = netease
+        if (netease != null) {
+            for (reading in readings.take(2)) {
+                val found = runCatching { netease.search("${reading.artist} ${reading.title}".trim()) }.getOrNull() ?: continue
+                val likely = found.map { it to score(netease.result(it, "[00:00.00]x"), song, readings) }
+                    .filter { (_, match) -> match != null && match.score >= ACCEPT }
+                    .sortedByDescending { (_, match) -> match!!.score }.take(2)
+                for ((hit, _) in likely) {
+                    val synced = runCatching { netease.lyrics(hit.id) }.getOrNull() ?: continue
+                    candidates += netease.result(hit, synced)
+                    good()?.let { return it.result }
+                }
+            }
+        }
+        candidates.mapNotNull { score(it, song, readings) }.filter { it.score >= ACCEPT }
+            .maxByOrNull { it.score }?.result?.let { return it }
+        // Plain text from lyrics.ovh as the last resort (it can still be synced by voice).
+        val ovh = ovh
+        if (ovh != null) {
+            for (reading in readings.take(2)) {
+                for (artist in Clean.artists(reading.artist).take(1)) {
+                    val found = runCatching { ovh.find(artist, reading.title) }.getOrNull() ?: continue
+                    score(found, song, readings)?.takeIf { it.score >= ACCEPT }?.let { return it.result }
+                }
+            }
+        }
+        return null
     }
 
-    /** Manual search: whatever the person typed, songs with lyrics first, closest duration first. */
+    /** Manual search: whatever the person typed, on LRCLIB and NetEase; synced first, closest duration first. */
     fun search(query: String, song: Song?): List<LrcLibResult> {
         val seconds = song?.durationMs?.div(1000) ?: 0
-        return lrcLib.search(query).filter { it.hasLyrics }
+        var failure: IOException? = null
+        val fromLrcLib = try { lrcLib.search(query) } catch (error: IOException) { failure = error; emptyList() }
+        val fromNetease = netease?.let { source ->
+            runCatching {
+                source.search(query, 6).mapNotNull { hit -> source.lyrics(hit.id)?.let { source.result(hit, it) } }
+            }.getOrDefault(emptyList())
+        }.orEmpty()
+        if (fromLrcLib.isEmpty() && fromNetease.isEmpty()) failure?.let { throw it }
+        return (fromLrcLib + fromNetease).filter { it.hasLyrics }
             .sortedWith(compareByDescending<LrcLibResult> { it.synced }
                 .thenBy { if (seconds > 0 && it.duration != null) abs(it.duration - seconds) else 0.0 })
     }

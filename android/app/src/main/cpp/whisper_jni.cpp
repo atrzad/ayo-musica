@@ -89,3 +89,13 @@ Java_io_github_atrzad_ayomusica_voice_Whisper_transcribe(JNIEnv *env, jclass, jl
     }
     return env->NewStringUTF(out.c_str());
 }
+
+// The language whisper settled on in the last transcription ("pt", "en"...), useful after one with "auto".
+extern "C" JNIEXPORT jstring JNICALL
+Java_io_github_atrzad_ayomusica_voice_Whisper_language(JNIEnv *env, jclass, jlong handle) {
+    auto *ctx = reinterpret_cast<whisper_context *>(handle);
+    if (!ctx) return env->NewStringUTF("auto");
+    const int id = whisper_full_lang_id(ctx);
+    const char *name = id >= 0 ? whisper_lang_str(id) : nullptr;
+    return env->NewStringUTF(name ? name : "auto");
+}

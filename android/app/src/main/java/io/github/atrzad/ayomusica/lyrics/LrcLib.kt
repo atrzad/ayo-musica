@@ -17,6 +17,8 @@ data class LrcLibResult(
     val instrumental: Boolean = false,
     val plainLyrics: String? = null,
     val syncedLyrics: String? = null,
+    /** Where it came from: "lrclib", "netease" or "lyricsovh" (LRCLIB's own answers leave it out). */
+    val source: String = "lrclib",
 ) {
     val synced: Boolean get() = !syncedLyrics.isNullOrBlank()
     val hasLyrics: Boolean get() = synced || !plainLyrics.isNullOrBlank()

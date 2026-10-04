@@ -350,7 +350,8 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             LyricsScreen(ui, current, viewModel.player, lyrics, onBack = { viewModel.show(Screen.Player) },
                 onShift = viewModel::shiftLyrics, onRetry = { viewModel.loadLyrics(force = true) },
                 onSearch = viewModel::searchLyrics, onChoose = { viewModel.chooseLyrics(it); tell("Letra escolhida") },
-                onSync = { viewModel.show(Screen.Sync) }, onVoiceSync = viewModel::syncByVoice)
+                onSync = { viewModel.show(Screen.Sync) }, onVoiceSync = viewModel::syncByVoice,
+                onTranscribe = viewModel::transcribeByVoice)
         }
         val toSync = (lyrics as? LyricsUi.Shown)?.lyrics
         if (screen == Screen.Sync && toSync != null) {

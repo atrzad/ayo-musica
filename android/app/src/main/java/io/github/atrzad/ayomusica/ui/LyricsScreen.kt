@@ -88,6 +88,7 @@ fun LyricsScreen(
     onChoose: (LrcLibResult) -> Unit,
     onSync: () -> Unit,
     onVoiceSync: () -> Unit,
+    onTranscribe: () -> Unit = {},
 ) {
     var searching by remember { mutableStateOf(false) }
     var syncMenu by remember { mutableStateOf(false) }
@@ -142,6 +143,10 @@ fun LyricsScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 AssistChip(onClick = { searching = true }, label = { Text("Buscar letra") },
                     leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(18.dp)) })
+                if (lyrics is LyricsUi.Missing || lyrics is LyricsUi.Offline) {  // transcribing needs no internet
+                    AssistChip(onClick = onTranscribe, label = { Text("Transcrever pela voz") },
+                        leadingIcon = { Icon(Icons.Rounded.Sync, null, Modifier.size(18.dp)) })
+                }
                 if (shown != null && shown.lines.any { it.text.isNotBlank() }) {
                     Box {
                         AssistChip(onClick = { syncMenu = true },
@@ -174,7 +179,7 @@ fun LyricsScreen(
     if (searching) LyricsSearchSheet(song, onSearch, onChoose = { onChoose(it); searching = false }) { searching = false }
 }
 
-/** Search LRCLIB by any text and pick the right lyrics. */
+/** Search LRCLIB and NetEase by any text and pick the right lyrics. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LyricsSearchSheet(
@@ -195,7 +200,7 @@ fun LyricsSearchSheet(
         busy = true
         error = null
         scope.launch {
-            onSearch(text).onSuccess { results = it }.onFailure { error = "Sem conexão com o LRCLIB." }
+            onSearch(text).onSuccess { results = it }.onFailure { error = "Sem conexão com as fontes de letras (LRCLIB, NetEase)." }
             busy = false
         }
     }
@@ -229,14 +234,15 @@ fun LyricsSearchSheet(
                 Spacer(Modifier.height(16.dp))
             } else {
                 LazyColumn(Modifier.padding(top = 8.dp).height(420.dp)) {
-                    items(results.orEmpty(), key = { it.id }) { result ->
+                    items(results.orEmpty(), key = { "${it.source}:${it.id}" }) { result ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { preview = result }
                             .padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(result.trackName.orEmpty(), fontWeight = FontWeight.SemiBold, maxLines = 1,
                                     overflow = TextOverflow.Ellipsis)
                                 Text(listOfNotNull(result.artistName, result.albumName,
-                                    result.duration?.let { durationText((it * 1000).toLong()) }).joinToString(" · "),
+                                    result.duration?.let { durationText((it * 1000).toLong()) },
+                                    if (result.source == "netease") "NetEase" else "LRCLIB").joinToString(" · "),
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }

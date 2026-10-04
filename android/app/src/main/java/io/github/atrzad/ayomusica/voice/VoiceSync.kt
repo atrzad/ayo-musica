@@ -92,6 +92,36 @@ class VoiceSync(private val context: Context) {
             Align.align(plain, Align.words(tokens))?.takeIf { it.second >= 0.2 }
         }
 
+    /** No lyrics anywhere: writes them down from the singing itself, with times. Null when nothing like lyrics was heard. */
+    suspend fun transcribe(song: Song, progress: (Stage, Float) -> Unit): Lyrics? = withContext(Dispatchers.Default) {
+        cancelled = false
+        progress(Stage.Decode, -1f)
+        val audio = AudioDecoder.decode(context, song.uri) { cancelled }
+        if (cancelled) throw IOException("Cancelado")
+        progress(Stage.Listen, 0f)
+        val handle = Whisper.load(model.absolutePath)
+        if (handle == 0L) throw IOException("Não deu para abrir o modelo de voz. Baixe de novo.")
+        val tokens = try {
+            val threads = Runtime.getRuntime().availableProcessors().coerceIn(2, 6)
+            // Whisper guesses the language from the first 30 s, often an instrumental intro, and then hears nothing.
+            // So the language comes from 30 s in the middle of the song (where someone is usually singing) first.
+            val rate = 16_000
+            val from = (audio.size / 3).coerceAtMost(maxOf(0, audio.size - 30 * rate))
+            val sample = audio.copyOfRange(from, minOf(audio.size, from + 30 * rate))
+            val heard = Whisper.transcribe(handle, sample, "auto", threads, null)
+            if (cancelled || heard == null) throw IOException("Cancelado")
+            // What whisper itself detected on that stretch; the lyrics' common words as a second opinion.
+            val language = Whisper.language(handle).takeIf { it != "auto" && it.isNotBlank() }
+                ?: Align.language(Align.words(heard).joinToString(" ") { it.text }).takeIf { it != "auto" }
+                ?: java.util.Locale.getDefault().language.takeIf { it in setOf("pt", "en", "es") } ?: "auto"
+            Whisper.transcribe(handle, audio, language, threads) { percent -> progress(Stage.Listen, percent / 100f) }
+        } finally {
+            Whisper.free(handle)
+        }
+        if (cancelled || tokens == null) throw IOException("Cancelado")
+        Align.transcript(Align.words(tokens))
+    }
+
     fun cancel() {
         cancelled = true
         Whisper.cancel()

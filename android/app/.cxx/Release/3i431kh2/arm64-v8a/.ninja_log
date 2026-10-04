@@ -32,3 +32,5 @@
 27347	70146	1790989090393706684	_deps/whisper-build/src/CMakeFiles/whisper.dir/whisper.cpp.o	aa0d3ab4b260b0d4
 70146	70161	1790989133193965313	_deps/whisper-build/src/libwhisper.a	dc058444fc6c04b1
 70162	70259	1790989133207298727	/home/ayo/Projects/ayo-musica/android/app/build/intermediates/cxx/Release/3i431kh2/obj/arm64-v8a/libayowhisper.so	4a8e80dff993e28b
+23	1727	1791121201798720760	CMakeFiles/ayowhisper.dir/whisper_jni.cpp.o	df133b83755effd4
+1728	1997	1791121203502066684	/home/ayo/Projects/ayo-musica/android/app/build/intermediates/cxx/Release/3i431kh2/obj/arm64-v8a/libayowhisper.so	4a8e80dff993e28b

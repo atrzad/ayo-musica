@@ -428,6 +428,42 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** No lyrics found anywhere: transcribe them from the singing (same model as syncing by voice). */
+    fun transcribeByVoice() {
+        val song = songOf(player.ui.value.current) ?: return
+        voiceJob?.cancel()
+        if (!voiceSync.supported) {
+            voice.value = VoiceState("O processador deste celular não tem as instruções que a transcrição pela voz usa.",
+                running = false)
+            return
+        }
+        voiceJob = viewModelScope.launch {
+            try {
+                if (!voiceSync.hasModel) {
+                    voice.value = VoiceState("Baixando o modelo de voz (60 MB, só desta vez)…", 0f)
+                    voiceSync.downloadModel { fraction -> voice.value = VoiceState("Baixando o modelo de voz (60 MB, só desta vez)…", fraction) }
+                }
+                val heard = voiceSync.transcribe(song) { stage, fraction ->
+                    voice.value = VoiceState(if (stage == io.github.atrzad.ayomusica.voice.VoiceSync.Stage.Listen)
+                        "Ouvindo e escrevendo a letra…" else "${stage.text}…", fraction)
+                }
+                if (heard == null) {
+                    voice.value = VoiceState("Não deu para ouvir letra nesta música (pode ser instrumental).", running = false)
+                    return@launch
+                }
+                lyricsRepository.save(song, io.github.atrzad.ayomusica.lyrics.LrcWriter.write(heard, song.title, song.artist), "",
+                    "transcrita")
+                loadLyrics()
+                voice.value = VoiceState("Letra transcrita pela voz, com ${heard.lines.size} linhas. Pode ter palavras erradas: " +
+                    "se achar a letra certa depois, use Buscar letra.", running = false)
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                voice.value = VoiceState(if (error.message == "Cancelado") "Transcrição cancelada."
+                    else "Não deu para transcrever: ${error.message ?: "erro"}", running = false)
+            }
+        }
+    }
+
     fun cancelVoice() {
         voiceSync.cancel()
         voiceJob?.cancel()

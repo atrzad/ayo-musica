@@ -213,6 +213,9 @@ private fun LyricLine(line: Lyrics.Line, lyrics: Lyrics, index: Int, current: In
 private fun sourceText(lyrics: Lyrics): String {
     val where = when (lyrics.source) {
         "lrclib" -> "LRCLIB"
+        "netease" -> "NetEase"
+        "transcrita" -> "transcrita pela voz (pode ter erros)"
+        "lyricsovh" -> "lyrics.ovh"
         "embutida" -> "tags da música"
         "manual" -> "marcada por você"
         "voz" -> "sincronizada pela voz"

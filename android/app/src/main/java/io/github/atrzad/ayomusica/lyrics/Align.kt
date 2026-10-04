@@ -13,11 +13,17 @@ object Align {
     /** whisper tokens ("t0\tt1\ttext" lines) → words; tokens without a leading space continue a word. */
     fun words(tokens: String): List<Word> {
         val words = mutableListOf<Word>()
+        var bracket = false  // inside a whisper note like "[Música]" or "(risos)", which comes in pieces
         for (line in tokens.lines()) {
             val parts = line.split('\t', limit = 3)
             if (parts.size < 3) continue
             val (start, end, text) = parts
-            if (text.isBlank() || text.trim().startsWith("[")) continue
+            if ('[' in text || '(' in text) bracket = true
+            if (bracket) {
+                if (']' in text || ')' in text) bracket = false
+                continue
+            }
+            if (text.isBlank()) continue
             val t0 = start.toLongOrNull() ?: continue
             val t1 = end.toLongOrNull() ?: t0
             if (text.startsWith(" ") || words.isEmpty()) words += Word(text.trim(), t0, t1)
@@ -27,6 +33,32 @@ object Align {
     }
 
     private fun clean(word: String) = fold(word).filter { it.isLetterOrDigit() }
+
+    /**
+     * Lyrics from the words heard alone (no text to align to): a new line after a pause, at the end of a sentence, or
+     * when a line gets long. Null when too little was heard to be lyrics (an instrumental, say).
+     */
+    fun transcript(heard: List<Word>, source: String = "transcrita"): Lyrics? {
+        val lines = mutableListOf<Lyrics.Line>()
+        var current = mutableListOf<Word>()
+        fun close() {
+            if (current.isNotEmpty()) {
+                val text = current.joinToString(" ") { it.text }.replaceFirstChar { it.uppercase() }
+                lines += Lyrics.Line(current.first().startMs, text)
+            }
+            current = mutableListOf()
+        }
+        for (word in heard) {
+            val last = current.lastOrNull()
+            val pause = last != null && word.startMs - last.endMs > 800
+            val sentence = last != null && (current.size >= 3 && last.text.last() in ".!?" ||
+                current.size >= 5 && last.text.last() in ",;:")
+            if (pause || sentence || current.size >= 9) close()
+            current += word
+        }
+        close()
+        return Lyrics(lines, synced = true, source = source).takeIf { lines.size >= 4 && heard.size >= 15 }
+    }
 
     /** (synced lyrics, share of lyric words that were heard) or null. */
     fun align(lyrics: Lyrics, heard: List<Word>): Pair<Lyrics, Double>? {

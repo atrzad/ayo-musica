@@ -15,4 +15,6 @@ object Whisper {
     @JvmStatic external fun cancel()
     /** "t0\tt1\ttext" per token (ms), or null if it failed or was cancelled. */
     @JvmStatic external fun transcribe(handle: Long, audio: FloatArray, language: String, threads: Int, listener: Progress?): String?
+    /** The language the last transcription used ("pt", "en"...): what whisper detected when asked for "auto". */
+    @JvmStatic external fun language(handle: Long): String
 }
