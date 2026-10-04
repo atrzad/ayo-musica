@@ -41,6 +41,12 @@ class Prefs(context: Context) {
     private val _fullscreen = flow(store.getBoolean("fullscreen", false))
     /** Hide the status and navigation bars. */
     val fullscreen: StateFlow<Boolean> = _fullscreen
+    private val _shazam = flow(store.getBoolean("shazam", true))
+    /** Recognize songs by their sound with Shazam (only a fingerprint is sent). */
+    val shazam: StateFlow<Boolean> = _shazam
+    private val _acoustidKey = flow(store.getString("acoustid_key", "")!!)
+    /** The person's AcoustID application key (free); blank: AcoustID is not used. */
+    val acoustidKey: StateFlow<String> = _acoustidKey
     private val _lyricsOnline = flow(store.getBoolean("lyrics_online", true))
     val lyricsOnline: StateFlow<Boolean> = _lyricsOnline
 
@@ -50,6 +56,8 @@ class Prefs(context: Context) {
     fun setVisualizer(on: Boolean) { _visualizer.value = on; store.edit().putBoolean("visualizer", on).apply() }
     fun setTutorialSeen(seen: Boolean) { _tutorialSeen.value = seen; store.edit().putBoolean("tutorial_seen", seen).apply() }
     fun setFullscreen(on: Boolean) { _fullscreen.value = on; store.edit().putBoolean("fullscreen", on).apply() }
+    fun setShazam(on: Boolean) { _shazam.value = on; store.edit().putBoolean("shazam", on).apply() }
+    fun setAcoustidKey(key: String) { _acoustidKey.value = key.trim(); store.edit().putString("acoustid_key", key.trim()).apply() }
     fun setLyricsOnline(on: Boolean) { _lyricsOnline.value = on; store.edit().putBoolean("lyrics_online", on).apply() }
 
     fun setTabs(value: List<Tab>) {

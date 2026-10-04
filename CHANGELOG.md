@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0 — Reconhecer pelo som: Shazam e AcoustID (Android)
+
+- Shazam: quando as tags não bastam, o Analisador reconhece 12 segundos do meio da música (só a impressão digital do
+  som é enviada). Acha até rap independente brasileiro que nenhuma outra fonte tinha. A assinatura é a mesma do
+  SongRec, byte a byte.
+- AcoustID: com a chave gratuita da pessoa (Configurações → Analisador), reconhece pelos dois primeiros minutos com o
+  Chromaprint e completa ano e gênero no MusicBrainz.
+- "Corrigir informações" ganhou "Reconhecer pelo som".
+- Som e tags concordando: aplica sozinho; discordando: vai para Revisar.
+- Licença: o app Android passa a ser GPL-3.0 (inclui o algoritmo do SongRec); o desktop continua MIT. Créditos em
+  `android/NOTICE.md` e nas Configurações.
+
 ## 0.9.0 — Mais fontes de letras e transcrição pela voz (Android)
 
 - Letras: além do LRCLIB, o NetEase (letras sincronizadas de um catálogo enorme, inclusive músicas brasileiras como

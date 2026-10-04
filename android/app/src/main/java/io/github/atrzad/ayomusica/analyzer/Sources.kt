@@ -12,10 +12,19 @@ import java.util.Locale
 
 /** The online catalogs songs are identified in. None of them needs an account or a key. */
 @Serializable
-enum class Source(val label: String) {
+enum class Source(val label: String, val byAudio: Boolean = false) {
     Deezer("Deezer"),
     ITunes("Apple Music"),
     MusicBrainz("MusicBrainz"),
+    /** Recognized by the sound (fingerprint of a few seconds), not by the tags. */
+    Shazam("Shazam", byAudio = true),
+    AcoustID("AcoustID", byAudio = true),
+    ;
+
+    companion object {
+        /** The catalogs searched by text. */
+        val byText = entries.filterNot { it.byAudio }
+    }
 }
 
 /** A song as one of the sources knows it. Year, genre and album artist may only come with [MetadataSource.complete]. */
@@ -35,6 +44,8 @@ data class Candidate(
     val covers: List<String> = emptyList(),
     /** What the source needs to fill in the details later (Deezer album id...). */
     val ref: String = "",
+    /** Recognized by the sound: how sure the source is (0..100). */
+    val confidence: Int = 0,
 )
 
 interface MetadataSource {
@@ -180,6 +191,13 @@ class MusicBrainz(private val http: Http = Http(1_100)) : MetadataSource {
         val body = http.text("https://musicbrainz.org/ws/2/recording?fmt=json&limit=15&query=" + Http.encode(query))
             ?: return emptyList()
         return parse(body)
+    }
+
+    /** One recording by its MusicBrainz id, with its releases (for year, album artist and genre). */
+    fun recording(id: String): Candidate? {
+        val body = http.text("https://musicbrainz.org/ws/2/recording/$id?fmt=json&inc=artist-credits+releases+release-groups+tags")
+            ?: return null
+        return parse("""{"recordings":[$body]}""").firstOrNull()
     }
 
     companion object {

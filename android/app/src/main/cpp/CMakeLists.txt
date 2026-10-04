@@ -26,3 +26,24 @@ FetchContent_MakeAvailable(whisper)
 add_library(ayowhisper SHARED whisper_jni.cpp)
 target_link_libraries(ayowhisper PRIVATE whisper log)
 target_compile_options(ayowhisper PRIVATE -O3)
+
+# Chromaprint (LGPL-2.1, with its bundled KissFFT) for AcoustID: a fingerprint of the first two minutes.
+set(FFT_LIB "kissfft" CACHE STRING "" FORCE)
+set(BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+# Its KissFFT lookup searches the top project's folder; point it at the copy inside chromaprint's sources.
+if(FETCHCONTENT_BASE_DIR)
+    set(chromaprint_deps "${FETCHCONTENT_BASE_DIR}")
+else()
+    set(chromaprint_deps "${CMAKE_BINARY_DIR}/_deps")
+endif()
+set(KISSFFT_SOURCE_DIR "${chromaprint_deps}/chromaprint-src/src/3rdparty/kissfft" CACHE PATH "" FORCE)
+FetchContent_Declare(chromaprint
+    URL https://github.com/acoustid/chromaprint/archive/refs/tags/v1.6.1.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(chromaprint)
+
+add_library(ayoprint SHARED chromaprint_jni.cpp)
+target_link_libraries(ayoprint PRIVATE chromaprint log)
+target_include_directories(ayoprint PRIVATE "${chromaprint_SOURCE_DIR}/src")
+target_compile_options(ayoprint PRIVATE -O3)

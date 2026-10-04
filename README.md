@@ -82,3 +82,9 @@ make smoke        # abre a janela de verdade com uma pasta de teste
 - `ayo_musica/`: biblioteca, tags, capas, fila, motor de áudio (GStreamer), MPRIS, letras, identificação (`identify/`) e a interface (`ui/`).
 - `packaging/flatpak/`: manifesto do Flatpak. `android/`: o app Android (Kotlin, Jetpack Compose e Media3).
 - `AYO_SELFTEST=<arquivo>` abre o app, confere os elementos de áudio e fecha, escrevendo `OK` ou o que falhou; `AYO_DATA_DIR`/`AYO_CACHE_DIR` apontam os dados para outra pasta (inclusive no Flatpak).
+
+## Licença
+
+O app de desktop está sob a licença MIT (`LICENSE`). O app Android (`android/`) está sob a GPL-3.0
+(`android/LICENSE`), porque inclui o algoritmo do Shazam portado do SongRec; os componentes de terceiros estão em
+`android/NOTICE.md`.

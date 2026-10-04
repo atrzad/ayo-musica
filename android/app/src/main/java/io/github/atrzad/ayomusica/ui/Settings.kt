@@ -87,7 +87,9 @@ fun SettingsScreen(onOpen: (SettingsPage) -> Unit, version: String) {
             }
         }
         item {
-            Text("Ayo Música $version", Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall,
+            Text("Ayo Música $version · licença GPL-3.0\nShazam pelo algoritmo do SongRec (GPL-3.0) · AcoustID com " +
+                "Chromaprint (LGPL-2.1) · voz com whisper.cpp (MIT) · fonte Pixelify Sans (OFL)",
+                Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -203,6 +205,10 @@ fun AnalyzerPage(
     onIgnore: (AnalysisItem) -> Unit,
     onUnignore: (AnalysisItem) -> Unit,
     onRetryNotFound: () -> Unit,
+    shazam: Boolean,
+    onShazam: (Boolean) -> Unit,
+    acoustidKey: String,
+    onAcoustidKey: (String) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(AnalyzerTab.Review) }
     val byTab = remember(items) { items.groupBy { it.tab() } }
@@ -234,6 +240,7 @@ fun AnalyzerPage(
                     Modifier.padding(vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
             }
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            ListenSettings(shazam, onShazam, acoustidKey, onAcoustidKey)
             if (items.isNotEmpty()) {
                 androidx.compose.foundation.layout.FlowRow(Modifier.padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -272,6 +279,29 @@ fun AnalyzerPage(
             }
         }
         items(shown, key = { it.song.id }) { item -> AnalysisRow(item, onAccept, onUndo, onSearch, onIgnore, onUnignore) }
+    }
+}
+
+/** Recognizing by the sound, when the tags are not enough: Shazam, and AcoustID with the person's free key. */
+@Composable
+private fun ListenSettings(shazam: Boolean, onShazam: (Boolean) -> Unit, key: String, onKey: (String) -> Unit) {
+    var typed by rememberSaveable(key) { mutableStateOf(key) }
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Text("Reconhecer pelo som", style = MaterialTheme.typography.titleSmall)
+        Row(Modifier.fillMaxWidth().clickable { onShazam(!shazam) }.padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Shazam", style = MaterialTheme.typography.bodyLarge)
+                Text("Quando as tags não bastam, reconhece 12 segundos do meio da música. Só a impressão digital do som " +
+                    "é enviada, nunca o áudio.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.material3.Switch(shazam, onShazam)
+        }
+        androidx.compose.material3.OutlinedTextField(typed, { typed = it }, Modifier.fillMaxWidth(),
+            label = { Text("Chave do AcoustID (opcional)") }, singleLine = true,
+            supportingText = { Text("Grátis: crie uma em acoustid.org/new-application e cole aqui.") },
+            trailingIcon = { if (typed.trim() != key) TextButton(onClick = { onKey(typed) }) { Text("Salvar") } })
     }
 }
 

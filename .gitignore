@@ -11,3 +11,4 @@ android/local.properties
 android/.kotlin/
 *.keystore
 *.jks
+android/app/.cxx/

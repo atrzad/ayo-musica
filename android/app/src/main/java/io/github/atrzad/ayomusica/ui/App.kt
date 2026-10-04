@@ -118,6 +118,8 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val mode by prefs.mode.collectAsStateWithLifecycle()
     val lyricsOnline by prefs.lyricsOnline.collectAsStateWithLifecycle()
     val fullscreen by prefs.fullscreen.collectAsStateWithLifecycle()
+    val shazamOn by prefs.shazam.collectAsStateWithLifecycle()
+    val acoustidKey by prefs.acoustidKey.collectAsStateWithLifecycle()
     val tutorialSeen by prefs.tutorialSeen.collectAsStateWithLifecycle()
     val sessionId by PlayerHub.audioSessionId.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -298,7 +300,8 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                                     tell("Informações salvas no app")
                                     viewModel.back()
                                 },
-                                onRestore = { viewModel.restoreTags(route.id); tell("Tags do arquivo restauradas") })
+                                onRestore = { viewModel.restoreTags(route.id); tell("Tags do arquivo restauradas") },
+                                onListen = if (shazamOn || acoustidKey.isNotBlank()) ({ viewModel.identifyByAudio(original) }) else null)
                         }
                     }
                     Route.Settings -> SettingsScreen({ viewModel.open(Route.SettingsOf(it)) }, version)
@@ -307,7 +310,9 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                         SettingsPage.Analyzer -> AnalyzerPage(analysis, analysisItems, analyzerCounts, viewModel::analyze,
                             viewModel::stopAnalysis, viewModel::accept, viewModel::undo, viewModel::undoAll, viewModel::acceptAll,
                             onSearch = { openFix(it.song.id) }, onIgnore = { viewModel.ignore(it); tell("Ignorada: não aparece mais") },
-                            onUnignore = viewModel::unignore, onRetryNotFound = viewModel::retryNotFound)
+                            onUnignore = viewModel::unignore, onRetryNotFound = viewModel::retryNotFound,
+                            shazam = shazamOn, onShazam = prefs::setShazam, acoustidKey = acoustidKey,
+                            onAcoustidKey = prefs::setAcoustidKey)
                         SettingsPage.Equalizer -> EqualizerPage()
                         SettingsPage.UseModes -> UseModePage(useMode, prefs::setUseMode, fullscreen, prefs::setFullscreen)
                         SettingsPage.Themes -> ThemeContent(theme, mode, MaterialTheme.colorScheme.background.luminance() < 0.3f,

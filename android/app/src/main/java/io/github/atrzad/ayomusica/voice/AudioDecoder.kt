@@ -13,13 +13,17 @@ object AudioDecoder {
     private const val RATE = 16_000
     private const val MAX_SECONDS = 15 * 60
 
-    fun decode(context: Context, uri: Uri, cancelled: () -> Boolean = { false }): FloatArray {
+    /** The whole song, or only [lengthMs] from [fromMs] (recognizing by the sound needs a few seconds, not all). */
+    fun decode(context: Context, uri: Uri, cancelled: () -> Boolean = { false }, fromMs: Long = 0,
+               lengthMs: Long = MAX_SECONDS * 1000L): FloatArray {
         val extractor = MediaExtractor()
         extractor.setDataSource(context, uri, null)
         val track = (0 until extractor.trackCount).firstOrNull {
             extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
         } ?: throw IllegalArgumentException("Sem trilha de áudio")
         extractor.selectTrack(track)
+        if (fromMs > 0) extractor.seekTo(fromMs * 1000, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+        val limit = RATE * minOf(lengthMs, MAX_SECONDS * 1000L) / 1000
         val format = extractor.getTrackFormat(track)
         val codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
         codec.configure(format, null, null, 0)
@@ -94,7 +98,7 @@ object AudioDecoder {
                         }
                         codec.releaseOutputBuffer(index, false)
                         if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
-                        if (out.size > RATE * MAX_SECONDS) break
+                        if (out.size >= limit) break
                     }
                 }
             }
@@ -105,6 +109,10 @@ object AudioDecoder {
         }
         return out.toArray()
     }
+
+    /** 16 kHz floats → 16-bit samples (what Shazam's and Chromaprint's fingerprints take). */
+    fun shorts(audio: FloatArray): ShortArray =
+        ShortArray(audio.size) { (audio[it].coerceIn(-1f, 1f) * 32767).toInt().toShort() }
 
     private class FloatArrayBuilder(capacity: Int) {
         private var data = FloatArray(capacity)

@@ -6,7 +6,7 @@ Kotlin, Jetpack Compose (Material 3) e Media3 (ExoPlayer + MediaSession). Androi
 - `playback/`: `PlaybackService` (segundo plano, notificação, tela de bloqueio, retomar a fila) e `PlayerConnection`.
 - `lyrics/`: LRC, LRCLIB e letras embutidas no MP3 (ID3 USLT/SYLT), com cache e atraso por música.
 - `ui/`: telas em Compose (Home, PlayerScreen, LyricsScreen, Settings, CarMode, RadialTabs).
-- `analyzer/`: Analisador de músicas (Deezer). `voice/` + `src/main/cpp/`: whisper.cpp (NDK r29, baixado pelo
+- `analyzer/`: Analisador de músicas (Deezer, Apple Music, MusicBrainz; pelo som: Shazam e AcoustID/Chromaprint). `voice/` + `src/main/cpp/`: whisper.cpp (NDK r29, baixado pelo
   CMake na compilação) para sincronizar letras pela voz; precisa de `ndk;29.0.14206865` e `cmake;4.1.2` no SDK.
 
 ```sh
@@ -19,3 +19,5 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 Assinatura das versões finais: `AYO_KEYSTORE` (arquivo .jks) e `AYO_KEYSTORE_PASSWORD` no ambiente. No GitHub vêm
 dos segredos `AYO_KEYSTORE_BASE64` e `AYO_KEYSTORE_PASSWORD`; a chave original fica em
 `~/.local/share/ayo-musica-android/` (guarde uma cópia: sem ela, o celular não aceita atualizar o app).
+
+Licença: GPL-3.0 (`LICENSE`); componentes de terceiros em `NOTICE.md`.

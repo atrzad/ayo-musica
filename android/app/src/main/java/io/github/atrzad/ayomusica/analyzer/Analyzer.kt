@@ -18,7 +18,11 @@ enum class Verdict { Auto, Review, NotFound }
  * few seconds is enough to apply on its own; doubtful matches go to review. Deezer is asked first; Apple Music and
  * MusicBrainz only when it is not sure, since they allow fewer requests.
  */
-class Analyzer(private val sources: List<MetadataSource> = listOf(Deezer(), ITunes(), MusicBrainz())) {
+class Analyzer(
+    private val sources: List<MetadataSource> = listOf(Deezer(), ITunes(), MusicBrainz()),
+    /** Recognizing by the sound (Shazam, AcoustID), asked when the tags are not enough. */
+    private val audio: AudioId? = null,
+) {
 
     fun analyze(song: Song): Pair<Verdict, Proposal?> {
         val readings = Clean.readings(song).take(3)
@@ -43,6 +47,14 @@ class Analyzer(private val sources: List<MetadataSource> = listOf(Deezer(), ITun
             }
             if ((best?.second ?: 0) >= AUTO) break
         }
+        // The tags were not enough: what does the sound say?
+        if ((best?.second ?: 0) < AUTO && audio != null && audio.enabled) {
+            val heard = try { audio.identify(song) } catch (_: java.io.IOException) { emptyList() }
+            for (candidate in heard) {
+                val score = audioScore(candidate, song, readings)
+                if (score > (best?.second ?: -1)) best = candidate to score
+            }
+        }
         if (best == null && failures == sources.size) throw java.io.IOException("Sem conexão com as fontes.")
         val (candidate, score) = best ?: return Verdict.NotFound to null
         return when {
@@ -53,8 +65,9 @@ class Analyzer(private val sources: List<MetadataSource> = listOf(Deezer(), ITun
     }
 
     private fun proposal(found: Candidate, score: Int): Proposal {
-        val source = sources.first { it.source == found.source }
-        val candidate = runCatching { source.complete(found) }.getOrDefault(found)
+        val candidate = runCatching {
+            sources.firstOrNull { it.source == found.source }?.complete(found) ?: audio?.complete(found) ?: found
+        }.getOrDefault(found)
         return Proposal(override(candidate), candidate.covers, score, "${candidate.artist} — ${candidate.title}", candidate.source)
     }
 
@@ -78,6 +91,16 @@ class Analyzer(private val sources: List<MetadataSource> = listOf(Deezer(), ITun
             albumArtist = candidate.albumArtist, year = candidate.year, genre = candidate.genre,
             source = candidate.source.name.lowercase(),
         )
+
+        /**
+         * A song recognized by its sound: the source's confidence, and sure enough to apply on its own when the title
+         * also agrees with the tags (the tags can be junk, so a disagreement only sends it to review).
+         */
+        fun audioScore(candidate: Candidate, song: Song, readings: List<Clean.Reading> = Clean.readings(song)): Int {
+            val text = score(candidate, song, readings)
+            val sound = candidate.confidence.coerceIn(0, 89)
+            return maxOf(text, if (text >= 40 && sound >= 70) 95 else sound)
+        }
 
         fun score(track: Candidate, song: Song, readings: List<Clean.Reading> = Clean.readings(song)): Int {
             val seconds = song.durationMs / 1000

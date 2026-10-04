@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
@@ -88,11 +89,13 @@ fun FixSongScreen(
     onComplete: suspend (Candidate) -> Candidate,
     onSave: (SongOverride, covers: List<String>, useCover: Boolean) -> Unit,
     onRestore: () -> Unit,
+    /** Recognize by the sound (Shazam, AcoustID); null when both are off. */
+    onListen: (() -> Unit)? = null,
 ) {
     val reading = remember(original.id) { Clean.readings(original).firstOrNull() }
     var title by rememberSaveable(original.id) { mutableStateOf(reading?.title ?: original.title) }
     var artist by rememberSaveable(original.id) { mutableStateOf(reading?.artist ?: original.artist) }
-    var sources by remember { mutableStateOf(Source.entries.toSet()) }
+    var sources by remember { mutableStateOf(Source.byText.toSet()) }
     var editing by remember { mutableStateOf<Candidate?>(null) }
     var manual by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
@@ -135,7 +138,7 @@ fun FixSongScreen(
                 keyboardActions = KeyboardActions(onSearch = { search() }))
             Text("Fontes", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Source.entries.forEach { source ->
+                Source.byText.forEach { source ->
                     FilterChip(source in sources, {
                         sources = if (source in sources) sources - source else sources + source
                     }, label = { Text(source.label) })
@@ -153,17 +156,27 @@ fun FixSongScreen(
                     Text("Editar à mão")
                 }
             }
+            if (onListen != null) {
+                OutlinedButton(onClick = { focus.clearFocus(); onListen() }, Modifier.fillMaxWidth(), enabled = !state.loading) {
+                    Icon(Icons.Rounded.GraphicEq, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Reconhecer pelo som (Shazam, AcoustID)")
+                }
+            }
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
-            if (state.failed.isNotEmpty()) {
+            if (state.note != null) {
+                Text(state.note, Modifier.padding(vertical = 4.dp), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
+            } else if (state.failed.isNotEmpty()) {
                 Text("Sem resposta de ${state.failed.joinToString { it.label }}.", Modifier.padding(vertical = 4.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
-            if (state.searched && !state.loading && state.results.isEmpty()) {
+            if (state.searched && !state.loading && state.results.isEmpty() && state.note == null) {
                 Text("Nada encontrado. Tente só o título, ou corrija o nome do artista.", Modifier.padding(vertical = 12.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (state.results.isNotEmpty()) {
-                Text("${state.results.size} resultados · toque em um para revisar e salvar", Modifier.padding(vertical = 8.dp),
+                Text((if (state.results.size == 1) "1 resultado" else "${state.results.size} resultados") + " · toque em um para revisar e salvar", Modifier.padding(vertical = 8.dp),
                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

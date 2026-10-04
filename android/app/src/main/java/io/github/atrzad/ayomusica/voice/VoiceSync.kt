@@ -74,7 +74,7 @@ class VoiceSync(private val context: Context) {
         withContext(Dispatchers.Default) {
             cancelled = false
             progress(Stage.Decode, -1f)
-            val audio = AudioDecoder.decode(context, song.uri) { cancelled }
+            val audio = AudioDecoder.decode(context, song.uri, cancelled = { cancelled })
             if (cancelled) throw IOException("Cancelado")
             progress(Stage.Listen, 0f)
             val handle = Whisper.load(model.absolutePath)
@@ -96,7 +96,7 @@ class VoiceSync(private val context: Context) {
     suspend fun transcribe(song: Song, progress: (Stage, Float) -> Unit): Lyrics? = withContext(Dispatchers.Default) {
         cancelled = false
         progress(Stage.Decode, -1f)
-        val audio = AudioDecoder.decode(context, song.uri) { cancelled }
+        val audio = AudioDecoder.decode(context, song.uri, cancelled = { cancelled })
         if (cancelled) throw IOException("Cancelado")
         progress(Stage.Listen, 0f)
         val handle = Whisper.load(model.absolutePath)

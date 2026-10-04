@@ -119,6 +119,8 @@ data class MetaSearchState(
     val searched: Boolean = false,
     /** Sources that could not be reached on the last search. */
     val failed: List<Source> = emptyList(),
+    /** Why recognizing by the sound failed (rate limit, AcoustID key...). */
+    val note: String? = null,
 )
 
 /** The run in progress (the results themselves live in [AnalysisStore]). */
@@ -165,6 +167,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         listOf(Deezer(), ITunes(), MusicBrainz()).associateBy { it.source }
     }
     private var metaJob: Job? = null
+    private val audioId by lazy {
+        io.github.atrzad.ayomusica.analyzer.AudioId(application, { prefs.shazam.value }, { prefs.acoustidKey.value })
+    }
     val voice = MutableStateFlow<VoiceState?>(null)
     private val voiceSync by lazy { io.github.atrzad.ayomusica.voice.VoiceSync(application) }
     private var voiceJob: Job? = null
@@ -500,7 +505,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             analysis.value = AnalysisState(running = true, total = targets.size)
-            val analyzer = Analyzer()
+            val analyzer = Analyzer(audio = audioId)
             try {
                 for ((index, song) in targets.withIndex()) {
                     if (!isActive) break
@@ -567,7 +572,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         metaJob?.cancel()
         metaSearch.value = MetaSearchState(loading = true)
         metaJob = viewModelScope.launch {
-            val asked = sources.ifEmpty { Source.entries.toSet() }.toList()
+            val asked = sources.filterNot { it.byAudio }.ifEmpty { Source.byText }.toList()
             val answers = asked.map { source ->
                 async(Dispatchers.IO) { runCatching { metaSources.getValue(source).search(title, artist) } }
             }.awaitAll()
@@ -583,7 +588,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun completeCandidate(candidate: Candidate): Candidate = withContext(Dispatchers.IO) {
-        runCatching { metaSources.getValue(candidate.source).complete(candidate) }.getOrDefault(candidate)
+        runCatching {
+            if (candidate.source.byAudio) audioId.complete(candidate) else metaSources.getValue(candidate.source).complete(candidate)
+        }.getOrDefault(candidate)
+    }
+
+    /** "Corrigir informações" → Pelo som: what Shazam and AcoustID hear in the song. */
+    fun identifyByAudio(song: Song) {
+        metaJob?.cancel()
+        metaSearch.value = MetaSearchState(loading = true)
+        metaJob = viewModelScope.launch {
+            val heard = withContext(Dispatchers.IO) { runCatching { audioId.identify(song) } }
+            metaSearch.value = MetaSearchState(results = heard.getOrDefault(emptyList()), searched = true,
+                failed = if (heard.isFailure) listOf(Source.Shazam) else emptyList(),
+                note = heard.exceptionOrNull()?.message)
+        }
     }
 
     fun saveOverride(id: Long, override: io.github.atrzad.ayomusica.data.SongOverride, covers: List<String>, useCover: Boolean) {
