@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -112,13 +113,20 @@ fun SongRow(
     position: Int = 0,
     showCover: Boolean = true,
     number: Int? = null,
+    /** Selecting several songs: whether this one is ticked (null when not selecting). */
+    selected: Boolean? = null,
+    /** What holding the row does; by default it opens the song's menu. */
+    onLongClick: (() -> Unit)? = null,
+    /** A short remark after the artist and album (e.g. "já na playlist"). */
+    note: String? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { menu = true })
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick ?: { menu = true })
+            .padding(start = if (selected != null) 4.dp else 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (selected != null) Checkbox(selected, { onClick() })
         when {
             number != null -> Text(if (number > 0) "$number" else "", Modifier.width(32.dp),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -129,12 +137,14 @@ fun SongRow(
             Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 fontWeight = if (playing) FontWeight.Bold else FontWeight.Normal,
                 style = MaterialTheme.typography.bodyLarge)
-            Text("${song.shownArtist} · ${song.shownAlbum}", maxLines = 1, overflow = TextOverflow.Ellipsis,
+            Text("${song.shownArtist} · ${song.shownAlbum}" + (note?.let { " · $it" } ?: ""), maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(durationText(song.durationMs), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
-        Box {
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp, end = if (selected != null) 16.dp else 0.dp))
+        if (selected == null) Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Mais opções") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text("Tocar a seguir") }, onClick = { menu = false; actions.playNext(song) })

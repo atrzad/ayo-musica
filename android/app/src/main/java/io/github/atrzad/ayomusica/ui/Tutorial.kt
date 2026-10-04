@@ -58,7 +58,8 @@ private data class Step(val title: String, val text: String, val icon: ImageVect
 private val STEPS = listOf(
     Step("Tela inicial",
         "Toque em AYO PLAYER, no alto, para abrir as Configurações. À direita fica a música que está tocando: " +
-            "toque nela para abrir o Tocando agora, ou arraste para a esquerda para avançar e para a direita para voltar.",
+            "toque nela para abrir o Tocando agora, ou arraste para a esquerda para avançar e para a direita para voltar. " +
+            "Segure uma música da lista para selecionar várias e tocar ou montar uma playlist com elas.",
         Icons.Rounded.MusicNote, listOf(Motion.Tap, Motion.Right)),
     Step("Trocar de aba",
         "Segure o botão redondo embaixo e arraste na direção da aba: Músicas, Playlists, Álbuns, Artistas… " +

@@ -101,6 +101,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val sleep by viewModel.sleep.collectAsStateWithLifecycle()
     val analysis by viewModel.analysis.collectAsStateWithLifecycle()
     val metaSearch by viewModel.metaSearch.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
     val fixes by viewModel.fixes.collectAsStateWithLifecycle()
     val loaded by viewModel.loaded.collectAsStateWithLifecycle()
     // "Corrigir informações" starts with a fresh search for that song.
@@ -121,6 +122,8 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     var explainVisualizer by remember { mutableStateOf(false) }
     var addingToPlaylist by remember { mutableStateOf<List<Song>?>(null) }
     var naming by remember { mutableStateOf<Pair<String, (String) -> Unit>?>(null) }
+    var editingPlaylist by remember { mutableStateOf<io.github.atrzad.ayomusica.data.Playlist?>(null) }
+    var deletingPlaylist by remember { mutableStateOf<io.github.atrzad.ayomusica.data.Playlist?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     fun tell(text: String) = scope.launch { snackbar.showSnackbar(text) }
@@ -172,7 +175,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
         viewModel.play(list, start, shuffle)
     }
 
-    BackHandler(enabled = screen != Screen.Library || routes.size > 1) { viewModel.back() }
+    BackHandler(enabled = screen != Screen.Library || routes.size > 1 || selection != null) { viewModel.back() }
 
     // First run (or Configurações → Como usar): the tutorial covers everything.
     val tutorialRoute = route is Route.SettingsOf && route.page == SettingsPage.Tutorial
@@ -195,20 +198,30 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                if (home != null) {
+                val picking = selection
+                if (home != null && picking != null) {
+                    SelectionBar(picking.size, onClose = viewModel::clearSelection,
+                        onSelectAll = { viewModel.selectAll(results) },
+                        onPlay = { viewModel.play(viewModel.selectedSongs()); viewModel.clearSelection() },
+                        onAddToPlaylist = { addingToPlaylist = viewModel.selectedSongs() },
+                        onPlayNext = {
+                            viewModel.playNext(viewModel.selectedSongs()); viewModel.clearSelection(); tell("Vão tocar a seguir")
+                        },
+                        onEnqueue = {
+                            viewModel.enqueue(viewModel.selectedSongs()); viewModel.clearSelection(); tell("Adicionadas à fila")
+                        },
+                        onLike = {
+                            viewModel.likeAll(viewModel.selectedSongs()); viewModel.clearSelection(); tell("Adicionadas às curtidas")
+                        })
+                } else if (home != null) {
                     HomeHeader(ui, current, viewModel.player, onSettings = { viewModel.open(Route.Settings) },
                         onOpenPlayer = { viewModel.show(Screen.Player) }, simple = useMode == UseMode.Simple)
                 } else {
                     PageHeader(titleOf(route, playlists), onBack = { viewModel.back() }) {
                         (route as? Route.PlaylistPage)?.let { page ->
                             val playlist = playlists.firstOrNull { it.id == page.id }
-                            IconButton(onClick = {
-                                naming = "Renomear playlist" to { name: String -> viewModel.renamePlaylist(page.id, name) }
-                            }) { Icon(Icons.Rounded.Edit, "Renomear") }
-                            IconButton(onClick = {
-                                viewModel.deletePlaylist(page.id)
-                                tell("Playlist “${playlist?.name.orEmpty()}” excluída")
-                            }) { Icon(Icons.Rounded.Delete, "Excluir playlist") }
+                            IconButton(onClick = { editingPlaylist = playlist }) { Icon(Icons.Rounded.Edit, "Editar playlist") }
+                            IconButton(onClick = { deletingPlaylist = playlist }) { Icon(Icons.Rounded.Delete, "Excluir playlist") }
                         }
                         if (route == Route.Settings) IconButton(onClick = viewModel::refresh) {
                             Icon(Icons.Rounded.Refresh, "Atualizar biblioteca")
@@ -231,14 +244,15 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                 if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 when (route) {
                     is Route.Home -> when (route.tab) {
-                        Tab.Songs -> SongsScreen(results, currentId, query, { viewModel.query.value = it }, actions, play)
+                        Tab.Songs -> SongsScreen(results, currentId, query, { viewModel.query.value = it }, actions, play,
+                            selection, viewModel::toggleSelected)
                         Tab.Albums -> AlbumsScreen(albums) { viewModel.open(Route.AlbumPage(it.key)) }
                         Tab.Artists -> ArtistsScreen(artists) { viewModel.open(Route.ArtistPage(it.name)) }
                         Tab.Genres -> GroupsScreen(genres, Icons.Rounded.Category) { viewModel.open(Route.GenrePage(it.name)) }
                         Tab.Folders -> GroupsScreen(folders, Icons.Rounded.Folder) { viewModel.open(Route.FolderPage(it.name)) }
                         Tab.Playlists -> PlaylistsScreen(playlists, { viewModel.playlistSongs(it).size },
                             onOpen = { viewModel.open(Route.PlaylistPage(it.id)) },
-                            onCreate = { naming = "Nova playlist" to { name: String -> viewModel.createPlaylist(name) } },
+                            onCreate = { naming = "Nova playlist" to { name: String -> viewModel.createPlaylistAndPick(name) } },
                             autoCount = { list -> autoCounts[list] ?: 0 },
                             onAuto = { viewModel.open(Route.AutoPage(it)) })
                     }
@@ -247,7 +261,15 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     is Route.GenrePage -> genres.firstOrNull { it.name == route.name }?.let { GroupScreen(it, currentId, actions, play) }
                     is Route.FolderPage -> folders.firstOrNull { it.name == route.name }?.let { GroupScreen(it, currentId, actions, play) }
                     is Route.PlaylistPage -> playlists.firstOrNull { it.id == route.id }
-                        ?.let { PlaylistScreen(it, viewModel.playlistSongs(it), currentId, actions, play) }
+                        ?.let { PlaylistScreen(it, viewModel.playlistSongs(it), currentId, actions, play,
+                            onAddSongs = { viewModel.open(Route.PickSongs(it.id)) }) }
+                    is Route.PickSongs -> playlists.firstOrNull { it.id == route.playlistId }?.let { playlist ->
+                        PickSongsScreen(playlist, songs, currentId, actions) { chosen ->
+                            viewModel.addToPlaylist(playlist.id, chosen)
+                            tell(addedText(playlist, chosen))
+                            viewModel.back()
+                        }
+                    }
                     is Route.AutoPage -> {
                         val list = remember(route.list, songs, stats) { route.list.songs(songs, stats) }
                         AutoListScreen(route.list, list, currentId, actions, play)
@@ -283,7 +305,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                 }
             }
         }
-        if (home != null && useMode == UseMode.Normal) {
+        if (home != null && useMode == UseMode.Normal && selection == null) {
             RadialTabs(tabs, tab, { viewModel.open(Route.Home(it)) },
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
@@ -363,15 +385,39 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             onPick = { playlist ->
                 viewModel.addToPlaylist(playlist.id, list)
                 addingToPlaylist = null
-                tell("Adicionada a “${playlist.name}”")
+                viewModel.clearSelection()
+                tell(addedText(playlist, list))
             },
             onCreate = { name ->
                 viewModel.createPlaylist(name, list)
                 addingToPlaylist = null
-                tell("Playlist “$name” criada")
+                viewModel.clearSelection()
+                tell("Playlist “$name” criada com ${if (list.size == 1) "1 música" else "${list.size} músicas"}")
             },
             onDismiss = { addingToPlaylist = null },
         )
+    }
+    deletingPlaylist?.let { playlist ->
+        AlertDialog(
+            onDismissRequest = { deletingPlaylist = null },
+            title = { Text("Excluir “${playlist.name}”?") },
+            text = { Text("A playlist some, mas as músicas continuam no celular.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deletePlaylist(playlist.id)
+                    deletingPlaylist = null
+                    tell("Playlist “${playlist.name}” excluída")
+                }) { Text("Excluir", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deletingPlaylist = null }) { Text("Cancelar") } },
+        )
+    }
+    editingPlaylist?.let { playlist ->
+        EditPlaylistDialog(playlist, onDismiss = { editingPlaylist = null }) { name, description, image, remove ->
+            viewModel.editPlaylist(playlist.id, name, description, image, remove)
+            editingPlaylist = null
+            tell("Playlist salva")
+        }
     }
     naming?.let { (title, done) ->
         val initial = (route as? Route.PlaylistPage)?.let { page -> playlists.firstOrNull { it.id == page.id }?.name }
@@ -379,6 +425,18 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             if (title.startsWith("Renomear")) "Renomear" else "Criar",
             onDone = { done(it); naming = null }, onDismiss = { naming = null })
     }
+}
+
+/** What adding to a playlist did: songs already in it are skipped, so only the new ones count. */
+private fun addedText(playlist: io.github.atrzad.ayomusica.data.Playlist, list: List<Song>): String {
+    val already = playlist.songIds.toSet()
+    val fresh = list.count { it.id !in already }
+    val skipped = list.size - fresh
+    return when {
+        fresh == 0 -> if (list.size == 1) "Já estava em “${playlist.name}”" else "Todas já estavam em “${playlist.name}”"
+        fresh == 1 -> "1 música adicionada a “${playlist.name}”"
+        else -> "$fresh músicas adicionadas a “${playlist.name}”"
+    } + if (fresh > 0 && skipped > 0) " ($skipped já estavam)" else ""
 }
 
 private fun titleOf(route: Route, playlists: List<io.github.atrzad.ayomusica.data.Playlist>): String = when (route) {
@@ -392,4 +450,5 @@ private fun titleOf(route: Route, playlists: List<io.github.atrzad.ayomusica.dat
     Route.Settings -> "Configurações"
     is Route.SettingsOf -> route.page.title
     is Route.FixSong -> "Corrigir informações"
+    is Route.PickSongs -> "Adicionar músicas"
 }

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0 — Seleção múltipla e playlists completas (Android)
+
+- Segurar uma música na tela inicial abre a seleção múltipla, com caixas de marcar: tocar, tocar a seguir, adicionar
+  à fila, adicionar à playlist (ou criar uma com elas), curtir, selecionar todas. O ⋮ continua com as opções de uma
+  música.
+- Dentro da playlist, "Adicionar músicas" abre a biblioteca com busca e caixas de marcar ("já na playlist" marcado);
+  criar uma playlist nova já abre essa tela.
+- Editar playlist: imagem (escolhida na galeria, sem pedir permissão), título e descrição; a imagem aparece no
+  cabeçalho e na lista de playlists. Excluir uma playlist agora pede confirmação.
+- Tela inicial: a busca fica numa linha só e a quantidade de músicas foi para o fim da lista.
+- Analisador: música corrigida à mão sai de Revisar e de Não achadas e aparece em Corrigidas ("corrigida à mão").
+- Avisos de "adicionadas à playlist" contam só as músicas novas (as que já estavam são puladas).
+
 ## 0.6.0 — Mais fontes e correção manual (Android)
 
 - Identificação com três fontes, sem conta nem chave: Deezer, Apple Music (iTunes) e MusicBrainz (capas do Cover

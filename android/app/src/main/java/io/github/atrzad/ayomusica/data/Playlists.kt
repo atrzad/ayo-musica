@@ -10,7 +10,14 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
-data class Playlist(val id: Long, val name: String, val songIds: List<Long> = emptyList())
+data class Playlist(
+    val id: Long,
+    val name: String,
+    val songIds: List<Long> = emptyList(),
+    val description: String = "",
+    /** A picture chosen for the playlist (a copy in the app's storage); null shows the first song's cover. */
+    val coverFile: String? = null,
+)
 
 /** Playlists kept in a small JSON file in the app's private storage. */
 class Playlists(private val file: File) {
@@ -41,7 +48,13 @@ class Playlists(private val file: File) {
 
     suspend fun rename(id: Long, name: String) = update(id) { it.copy(name = name.trim()) }
 
-    suspend fun delete(id: Long) = save(state.value.filterNot { it.id == id })
+    suspend fun edit(id: Long, name: String, description: String, coverFile: String?) =
+        update(id) { it.copy(name = name.trim(), description = description.trim(), coverFile = coverFile) }
+
+    suspend fun delete(id: Long) {
+        state.value.firstOrNull { it.id == id }?.coverFile?.let { File(it).delete() }
+        save(state.value.filterNot { it.id == id })
+    }
 
     /** Songs already in the playlist are skipped. */
     suspend fun add(id: Long, songIds: List<Long>) =

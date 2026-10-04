@@ -80,6 +80,8 @@ sealed interface Route {
     data class SettingsOf(val page: SettingsPage) : Route
     /** Search the online sources by hand and write over a song's information. */
     data class FixSong(val id: Long) : Route
+    /** Pick songs from the whole library (with search and checkboxes) to add to a playlist. */
+    data class PickSongs(val playlistId: Long) : Route
 }
 
 /** What covers the library: nothing, the full player, the lyrics, or the sync editor. */
@@ -88,7 +90,14 @@ enum class Screen { Library, Player, Lyrics, Sync }
 /** Syncing by voice: what it is doing (or the result), with progress 0..1 (−1: unknown). */
 data class VoiceState(val text: String, val progress: Float = -1f, val running: Boolean = true)
 
-data class AnalysisItem(val song: Song, val verdict: Verdict, val proposal: Proposal?, val applied: Boolean = false)
+data class AnalysisItem(
+    val song: Song,
+    val verdict: Verdict,
+    val proposal: Proposal?,
+    val applied: Boolean = false,
+    /** Corrected by hand on "Corrigir informações": what was saved (it leaves the review lists). */
+    val manual: io.github.atrzad.ayomusica.data.SongOverride? = null,
+)
 
 /** The manual search on the "Corrigir informações" page. */
 data class MetaSearchState(
@@ -133,6 +142,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val sleep: StateFlow<SleepTimer.Mode> = SleepTimer.mode
     val analysis = MutableStateFlow(AnalysisState())
     val metaSearch = MutableStateFlow(MetaSearchState())
+    /** Songs ticked on the home list (in the order they were picked); null when not selecting. */
+    val selection = MutableStateFlow<Set<Long>?>(null)
     /** The corrections saved in the app, by song id. */
     val fixes: StateFlow<Map<Long, io.github.atrzad.ayomusica.data.SongOverride>> = overrides.all
     private val metaSources: Map<Source, MetadataSource> by lazy {
@@ -202,6 +213,34 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // ── navigation ───────────────────────────────────────────────────────
     fun open(route: Route) {
         routes.value = if (route is Route.Home) listOf(route) else routes.value + route
+        selection.value = null
+    }
+
+    // ── selecting several songs ──────────────────────────────────────────
+    /** Holding a song starts selecting with it; while selecting, tapping ticks or unticks. */
+    fun toggleSelected(song: Song) {
+        val now = selection.value ?: emptySet()
+        selection.value = if (song.id in now) now - song.id else now + song.id
+    }
+
+    fun selectAll(list: List<Song>) {
+        selection.value = (selection.value ?: emptySet()) + list.map { it.id }
+    }
+
+    fun clearSelection() {
+        selection.value = null
+    }
+
+    fun selectedSongs(): List<Song> = selection.value.orEmpty().mapNotNull { byId.value[it] }
+
+    /** Likes them all (the ones already liked stay liked). */
+    fun likeAll(list: List<Song>) = list.filterNot(::isFavorite).forEach(::toggleFavorite)
+
+    /** Creates the playlist and goes straight to picking its songs. */
+    fun createPlaylistAndPick(name: String) = viewModelScope.launch {
+        val playlist = playlistStore.create(name)
+        open(Route.PlaylistPage(playlist.id))
+        open(Route.PickSongs(playlist.id))
     }
 
     fun show(next: Screen) {
@@ -210,6 +249,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Back: closes the sync editor, lyrics, player, then pages. False when there is nothing to close. */
     fun back(): Boolean {
+        if (selection.value != null && screen.value == Screen.Library) {
+            selection.value = null
+            return true
+        }
         when (screen.value) {
             Screen.Sync -> screen.value = Screen.Lyrics
             Screen.Lyrics -> screen.value = Screen.Player
@@ -443,14 +486,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun saveOverride(id: Long, override: io.github.atrzad.ayomusica.data.SongOverride, covers: List<String>, useCover: Boolean) {
         viewModelScope.launch {
             writeOverride(id, override, covers, useCover)
-            updateItem(id) { it.copy(applied = true) }
+            updateItem(id) { it.copy(applied = true, manual = override) }
         }
     }
 
     /** Back to what the file's tags say. */
     fun restoreTags(id: Long) {
         overrides.remove(id)
-        updateItem(id) { it.copy(applied = false) }
+        updateItem(id) { it.copy(applied = false, manual = null) }
     }
 
     fun clearMetaSearch() {
@@ -468,7 +511,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun undo(item: AnalysisItem) {
         overrides.remove(item.song.id)
-        updateItem(item.song.id) { it.copy(applied = false) }
+        updateItem(item.song.id) { it.copy(applied = false, manual = null) }
     }
 
     /** Accepts every suggestion still waiting for review. */
@@ -501,6 +544,34 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun removeFromPlaylist(id: Long, position: Int) = viewModelScope.launch { playlistStore.removeAt(id, position) }
 
     fun renamePlaylist(id: Long, name: String) = viewModelScope.launch { playlistStore.rename(id, name) }
+
+    /**
+     * Saves title, description and picture. A new [image] (from the photo picker) is copied, at most 1024 px, into the
+     * app's storage under a new name; [removeImage] goes back to the first song's cover.
+     */
+    fun editPlaylist(id: Long, name: String, description: String, image: Uri?, removeImage: Boolean) = viewModelScope.launch {
+        val previous = playlists.value.firstOrNull { it.id == id }?.coverFile
+        val cover = when {
+            image != null -> withContext(Dispatchers.IO) { copyPicture(image, id) } ?: previous
+            removeImage -> null
+            else -> previous
+        }
+        playlistStore.edit(id, name, description, cover)
+        if (previous != null && previous != cover) withContext(Dispatchers.IO) { File(previous).delete() }
+    }
+
+    private fun copyPicture(image: Uri, id: Long): String? = runCatching {
+        val context = getApplication<Application>()
+        val data = context.contentResolver.openInputStream(image)?.use { it.readBytes() } ?: return null
+        val bitmap = io.github.atrzad.ayomusica.data.Artwork.decode(data, 1024) ?: return null
+        val side = maxOf(bitmap.width, bitmap.height)
+        val scaled = if (side > 1024) android.graphics.Bitmap.createScaledBitmap(bitmap,
+            bitmap.width * 1024 / side, bitmap.height * 1024 / side, true) else bitmap
+        val target = File(context.filesDir, "playlist-covers/$id-${System.currentTimeMillis()}.jpg")
+        target.parentFile?.mkdirs()
+        target.outputStream().use { scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
+        target.absolutePath
+    }.getOrNull()
 
     fun deletePlaylist(id: Long) = viewModelScope.launch {
         playlistStore.delete(id)

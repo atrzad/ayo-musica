@@ -205,7 +205,7 @@ fun AnalyzerPage(
                     Modifier.fillMaxWidth())
                 val applied = state.items.count { it.applied }
                 val review = state.items.count { it.verdict == Verdict.Review && !it.applied }
-                val missing = state.items.count { it.verdict == Verdict.NotFound }
+                val missing = state.items.count { it.verdict == Verdict.NotFound && !it.applied }
                 Text("${state.done} de ${state.total} · $applied corrigidas · $review para revisar · $missing não encontradas",
                     Modifier.padding(vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
             }
@@ -235,7 +235,8 @@ fun AnalyzerPage(
             when (filter) {
                 Verdict.Auto -> it.applied
                 Verdict.Review -> it.verdict == Verdict.Review && !it.applied
-                Verdict.NotFound -> it.verdict == Verdict.NotFound
+                // Corrected by hand (or accepted): out of the lists still to deal with.
+                Verdict.NotFound -> it.verdict == Verdict.NotFound && !it.applied
             }
         }
         items(shown, key = { it.song.id }) { item -> AnalysisRow(item, onAccept, onUndo, onSearch) }
@@ -251,7 +252,14 @@ private fun AnalysisRow(item: AnalysisItem, onAccept: (AnalysisItem) -> Unit, on
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(before(item.song), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                item.proposal?.let { proposal ->
+                val manual = item.manual
+                if (manual != null) {
+                    Text("→ ${manual.artist} — ${manual.title}", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.SemiBold)
+                    Text(listOfNotNull(manual.album.ifBlank { null }, manual.year.takeIf { it > 0 }?.toString(), "corrigida à mão")
+                        .joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary)
+                } else item.proposal?.let { proposal ->
                     val o = proposal.override
                     Text("→ ${o.artist} — ${o.title}", maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
                     Text(listOfNotNull(o.album.ifBlank { null }, o.year.takeIf { it > 0 }?.toString(), proposal.source.label,

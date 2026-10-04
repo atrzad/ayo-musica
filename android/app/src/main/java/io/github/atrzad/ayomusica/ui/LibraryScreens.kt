@@ -75,14 +75,10 @@ fun PlayButtons(songs: List<Song>, onPlay: (List<Song>, Int, Boolean) -> Unit) {
 
 @Composable
 fun SongsScreen(songs: List<Song>, currentId: String?, query: String, onQuery: (String) -> Unit, actions: SongActions,
-                onPlay: (List<Song>, Int, Boolean) -> Unit) {
+                onPlay: (List<Song>, Int, Boolean) -> Unit, selection: Set<Long>? = null, onSelect: ((Song) -> Unit)? = null) {
     LazyColumn(contentPadding = listPadding) {
         item {
-            OutlinedTextField(query, onQuery, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Buscar músicas, artistas, álbuns") }, singleLine = true,
-                leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Limpar") } },
-                shape = RoundedCornerShape(24.dp))
+            SearchField(query, onQuery)
         }
         if (songs.isEmpty()) {
             item {
@@ -92,18 +88,34 @@ fun SongsScreen(songs: List<Song>, currentId: String?, query: String, onQuery: (
                 }
             }
         }
-        item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                PlayButtons(songs, onPlay)
-                Spacer(Modifier.weight(1f))
-                Text(if (songs.size == 1) "1 música" else "${songs.size} músicas", Modifier.padding(end = 16.dp),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        if (selection == null) item { PlayButtons(songs, onPlay) }
         itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-            SongRow(song, song.id.toString() == currentId, actions, onClick = { onPlay(songs, index, false) })
+            SongRow(song, song.id.toString() == currentId, actions,
+                onClick = { if (selection != null && onSelect != null) onSelect(song) else onPlay(songs, index, false) },
+                selected = selection?.let { song.id in it },
+                // Holding a song starts selecting several (the ⋮ keeps the options for one song).
+                onLongClick = onSelect?.let { select -> { select(song) } })
         }
+        if (songs.isNotEmpty()) item { CountFooter(songs.size) }
     }
+}
+
+/** The search field of the song lists: one line, placeholder included. */
+@Composable
+fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String = "Buscar músicas, artistas, álbuns") {
+    OutlinedTextField(query, onQuery, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) }, singleLine = true,
+        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Limpar") } },
+        shape = RoundedCornerShape(24.dp))
+}
+
+/** "N músicas" at the end of a list. */
+@Composable
+fun CountFooter(count: Int) {
+    Text(if (count == 1) "1 música" else "$count músicas", Modifier.fillMaxWidth().padding(16.dp),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 }
 
 /** Genres or folders: a name and how many songs. */
@@ -214,12 +226,16 @@ fun PlaylistsScreen(playlists: List<Playlist>, count: (Playlist) -> Int, onOpen:
             }
         }
         items(playlists, key = { it.id }) { playlist ->
-            Row(Modifier.fillMaxWidth().clickable { onOpen(playlist) }.padding(horizontal = 16.dp, vertical = 12.dp),
+            Row(Modifier.fillMaxWidth().clickable { onOpen(playlist) }.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, null)
+                val art = playlist.artUri
+                if (art != null) Cover(art, 48.dp)
+                else Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, null) }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(playlist.name, style = MaterialTheme.typography.bodyLarge)
+                    if (playlist.description.isNotBlank()) Text(playlist.description, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val songs = count(playlist)
                     Text(if (songs == 1) "1 música" else "$songs músicas", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -230,9 +246,11 @@ fun PlaylistsScreen(playlists: List<Playlist>, count: (Playlist) -> Int, onOpen:
 }
 
 @Composable
-private fun Header(cover: Song?, title: String, subtitle: String, detail: String, round: Boolean = false) {
+private fun Header(cover: Song?, title: String, subtitle: String, detail: String, round: Boolean = false,
+                   art: android.net.Uri? = null, description: String = "") {
     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (cover != null) Cover(cover.artUri, 120.dp, corner = if (round) 60.dp else 12.dp)
+        if (art != null) Cover(art, 120.dp, corner = 12.dp)
+        else if (cover != null) Cover(cover.artUri, 120.dp, corner = if (round) 60.dp else 12.dp)
         else Icon(if (round) Icons.Rounded.Person else Icons.AutoMirrored.Rounded.PlaylistPlay, null, Modifier.size(56.dp))
         Spacer(Modifier.width(16.dp))
         Column {
@@ -241,6 +259,10 @@ private fun Header(cover: Song?, title: String, subtitle: String, detail: String
             if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyLarge)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+    if (description.isNotBlank()) {
+        Text(description, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -276,15 +298,21 @@ fun ArtistScreen(artist: Artist, currentId: String?, actions: SongActions, onPla
 
 @Composable
 fun PlaylistScreen(playlist: Playlist, songs: List<Song>, currentId: String?, actions: SongActions,
-                   onPlay: (List<Song>, Int, Boolean) -> Unit) {
+                   onPlay: (List<Song>, Int, Boolean) -> Unit, onAddSongs: () -> Unit) {
     LazyColumn(contentPadding = listPadding) {
         item {
             Header(songs.firstOrNull(), playlist.name, "",
-                if (songs.size == 1) "1 música" else "${songs.size} músicas")
-            PlayButtons(songs, onPlay)
+                if (songs.size == 1) "1 música" else "${songs.size} músicas", art = playlist.artUri,
+                description = playlist.description)
+            if (songs.isNotEmpty()) PlayButtons(songs, onPlay)
+            androidx.compose.material3.FilledTonalButton(onClick = onAddSongs, Modifier.padding(horizontal = 16.dp)) {
+                Icon(Icons.Rounded.Add, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Adicionar músicas")
+            }
             if (songs.isEmpty()) {
-                Text("Adicione músicas pelo menu ⋮ de qualquer música.", Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Escolha as músicas em Adicionar músicas, ou segure uma música na tela inicial para selecionar várias.",
+                    Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         itemsIndexed(songs, key = { index, song -> "$index-${song.id}" }) { index, song ->
