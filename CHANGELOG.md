@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0 — Analisador que lembra, AMOLED, tela cheia e lista negra do aleatório (Android)
+
+- Analisador: os resultados ficam salvos; "Continuar análise" segue de onde parou e só procura as músicas ainda não
+  verificadas. Corrigida, aceita ou desfeita, cada música fica numa aba só (antes, durante a análise, uma correção à
+  mão ou "Aceitar todas" voltava para a lista anterior e a tela ficava pulando).
+- Ignorar em Revisar e Não achadas: a música sai das listas e não é mais analisada; a aba Ignoradas traz de volta.
+  "Procurar de novo as não achadas" refaz só essas.
+- "Aceitar todas" mostra o progresso e não roda duas vezes ao mesmo tempo.
+- Tema AMOLED (preto puro) em Temas → Claro ou escuro, com qualquer paleta.
+- Tela cheia em Configurações → Modo: esconde a barra de status e a de navegação.
+- Lista negra do aleatório: "Não tocar no aleatório" (menu ⋮ da música, do Tocando agora ou na seleção múltipla). Essas
+  músicas ficam de fora quando você ouve no aleatório, mas tocam quando escolhidas. A lista "Fora do aleatório" em
+  Playlists mostra quais são.
+
 ## 0.7.0 — Seleção múltipla e playlists completas (Android)
 
 - Segurar uma música na tela inicial abre a seleção múltipla, com caixas de marcar: tocar, tocar a seguir, adicionar

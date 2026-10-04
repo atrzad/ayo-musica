@@ -80,6 +80,8 @@ fun PlayerScreen(
     onLyrics: () -> Unit,
     onArtist: () -> Unit,
     onFixInfo: () -> Unit = {},
+    noShuffle: Boolean = false,
+    onNoShuffle: () -> Unit = {},
     /** Simplified mode: buttons for previous/next and the lyrics instead of relying on swipes. */
     simple: Boolean = false,
 ) {
@@ -140,6 +142,8 @@ fun PlayerScreen(
                                 onClick = { menu = false; onVisualizer() })
                             DropdownMenuItem(text = { Text("Ir para o artista") }, onClick = { menu = false; onArtist() })
                             DropdownMenuItem(text = { Text("Corrigir informações") }, onClick = { menu = false; onFixInfo() })
+                            DropdownMenuItem(text = { Text(if (noShuffle) "Voltar a tocar no aleatório" else "Não tocar no aleatório") },
+                                onClick = { menu = false; onNoShuffle() })
                         }
                     }
                     IconButton(onClick = onFavorite) {

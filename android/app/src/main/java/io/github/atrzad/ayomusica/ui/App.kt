@@ -108,7 +108,8 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val openFix: (Long) -> Unit = { id -> viewModel.clearMetaSearch(); viewModel.open(Route.FixSong(id)) }
     val voice by viewModel.voice.collectAsStateWithLifecycle()
     val autoCounts by viewModel.autoCounts.collectAsStateWithLifecycle()
-    val needingWork by viewModel.needingWorkCount.collectAsStateWithLifecycle()
+    val analysisItems by viewModel.analysisItems.collectAsStateWithLifecycle()
+    val analyzerCounts by viewModel.analyzerCounts.collectAsStateWithLifecycle()
     val useMode by prefs.useMode.collectAsStateWithLifecycle()
     val tabs by prefs.tabs.collectAsStateWithLifecycle()
     val startTab by prefs.startTab.collectAsStateWithLifecycle()
@@ -116,6 +117,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val theme by prefs.theme.collectAsStateWithLifecycle()
     val mode by prefs.mode.collectAsStateWithLifecycle()
     val lyricsOnline by prefs.lyricsOnline.collectAsStateWithLifecycle()
+    val fullscreen by prefs.fullscreen.collectAsStateWithLifecycle()
     val tutorialSeen by prefs.tutorialSeen.collectAsStateWithLifecycle()
     val sessionId by PlayerHub.audioSessionId.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -159,6 +161,12 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             tell(if (stats[song.id]?.favorite == true) "Tirada das curtidas" else "Adicionada às curtidas")
         },
         fixInfo = { song -> openFix(song.id) },
+        isNoShuffle = { stats[it.id]?.noShuffle == true },
+        toggleNoShuffle = { song ->
+            val off = stats[song.id]?.noShuffle == true
+            viewModel.setNoShuffle(listOf(song), !off)
+            tell(if (off) "Volta a tocar no aleatório" else "Não toca mais no aleatório")
+        },
     )
     // The search keyboard must not stay open over the player or the lyrics.
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -212,6 +220,10 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                         },
                         onLike = {
                             viewModel.likeAll(viewModel.selectedSongs()); viewModel.clearSelection(); tell("Adicionadas às curtidas")
+                        },
+                        onNoShuffle = {
+                            viewModel.setNoShuffle(viewModel.selectedSongs(), true); viewModel.clearSelection()
+                            tell("Não tocam mais no aleatório")
                         })
                 } else if (home != null) {
                     HomeHeader(ui, current, viewModel.player, onSettings = { viewModel.open(Route.Settings) },
@@ -292,11 +304,12 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     Route.Settings -> SettingsScreen({ viewModel.open(Route.SettingsOf(it)) }, version)
                     is Route.SettingsOf -> when (route.page) {
                         SettingsPage.Tutorial -> Unit  // shown full screen above
-                        SettingsPage.Analyzer -> AnalyzerPage(analysis, needingWork, songs.size,
-                            viewModel.correctedCount(), viewModel::analyze, viewModel::stopAnalysis, viewModel::accept,
-                            viewModel::undo, viewModel::undoAll, viewModel::acceptAll, onSearch = { openFix(it.song.id) })
+                        SettingsPage.Analyzer -> AnalyzerPage(analysis, analysisItems, analyzerCounts, viewModel::analyze,
+                            viewModel::stopAnalysis, viewModel::accept, viewModel::undo, viewModel::undoAll, viewModel::acceptAll,
+                            onSearch = { openFix(it.song.id) }, onIgnore = { viewModel.ignore(it); tell("Ignorada: não aparece mais") },
+                            onUnignore = viewModel::unignore, onRetryNotFound = viewModel::retryNotFound)
                         SettingsPage.Equalizer -> EqualizerPage()
-                        SettingsPage.UseModes -> UseModePage(useMode, prefs::setUseMode)
+                        SettingsPage.UseModes -> UseModePage(useMode, prefs::setUseMode, fullscreen, prefs::setFullscreen)
                         SettingsPage.Themes -> ThemeContent(theme, mode, MaterialTheme.colorScheme.background.luminance() < 0.3f,
                             prefs::setTheme, prefs::setMode)
                         SettingsPage.HomeTabs -> HomeTabsPage(tabs, startTab, prefs::setTabs, prefs::setStartTab)
@@ -322,6 +335,14 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                 onFixInfo = {
                     current?.let { openFix(it.id) }
                     viewModel.show(Screen.Library)
+                },
+                noShuffle = current?.let { stats[it.id]?.noShuffle } == true,
+                onNoShuffle = {
+                    current?.let { song ->
+                        val off = stats[song.id]?.noShuffle == true
+                        viewModel.setNoShuffle(listOf(song), !off)
+                        tell(if (off) "Volta a tocar no aleatório" else "Não toca mais no aleatório")
+                    }
                 }, simple = useMode == UseMode.Simple)
         }
         AnimatedVisibility(screen == Screen.Lyrics || screen == Screen.Sync,

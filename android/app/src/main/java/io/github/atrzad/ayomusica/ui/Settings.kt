@@ -40,6 +40,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,8 +66,8 @@ private fun SettingsPage.detail(): String = when (this) {
     SettingsPage.Tutorial -> "Os gestos e botões do app, passo a passo"
     SettingsPage.Analyzer -> "Busca título, artista, álbum, ano e capa oficial das músicas"
     SettingsPage.Equalizer -> "Ajustar, ligar e desligar"
-    SettingsPage.UseModes -> "Normal, modo carro ou simplificado"
-    SettingsPage.Themes -> "Cores do app, claro ou escuro"
+    SettingsPage.UseModes -> "Normal, carro, simplificado e tela cheia"
+    SettingsPage.Themes -> "Cores do app: claro, escuro ou AMOLED"
     SettingsPage.HomeTabs -> "Quais abas aparecem e em que ordem"
     SettingsPage.LyricsSettings -> "Busca de letras na internet"
 }
@@ -97,8 +99,18 @@ fun EqualizerPage() {
 }
 
 @Composable
-fun UseModePage(current: UseMode, onSelect: (UseMode) -> Unit) {
+fun UseModePage(current: UseMode, onSelect: (UseMode) -> Unit, fullscreen: Boolean, onFullscreen: (Boolean) -> Unit) {
     Column(Modifier.fillMaxSize().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth().clickable { onFullscreen(!fullscreen) }.padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Tela cheia", style = MaterialTheme.typography.titleMedium)
+                Text("Esconde a barra de status e a de navegação. Deslize da borda da tela para vê-las por um instante.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.material3.Switch(fullscreen, onFullscreen)
+        }
+        HorizontalDivider(Modifier.padding(vertical = 4.dp))
         UseMode.entries.forEach { mode ->
             Row(Modifier.fillMaxWidth().clickable { onSelect(mode) }.padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -166,13 +178,21 @@ fun LyricsSettingsPage(online: Boolean, onOnline: (Boolean) -> Unit) {
     }
 }
 
-/** Music Analyzer: finds the real title, artist, album, year and official cover of songs on Deezer. */
+private enum class AnalyzerTab(val title: String) { Corrected("Corrigidas"), Review("Revisar"), NotFound("Não achadas"), Ignored("Ignoradas") }
+
+private fun AnalysisItem.tab(): AnalyzerTab = when {
+    applied -> AnalyzerTab.Corrected
+    ignored -> AnalyzerTab.Ignored
+    proposal != null -> AnalyzerTab.Review
+    else -> AnalyzerTab.NotFound
+}
+
+/** Music Analyzer: finds the real title, artist, album, year and official cover of songs online. */
 @Composable
 fun AnalyzerPage(
     state: AnalysisState,
-    needing: Int,
-    total: Int,
-    corrected: Int,
+    items: List<AnalysisItem>,
+    counts: AnalyzerCounts,
     onAnalyze: (Boolean) -> Unit,
     onStop: () -> Unit,
     onAccept: (AnalysisItem) -> Unit,
@@ -180,72 +200,90 @@ fun AnalyzerPage(
     onUndoAll: () -> Unit,
     onAcceptAll: () -> Unit,
     onSearch: (AnalysisItem) -> Unit,
+    onIgnore: (AnalysisItem) -> Unit,
+    onUnignore: (AnalysisItem) -> Unit,
+    onRetryNotFound: () -> Unit,
 ) {
-    var filter by remember { mutableStateOf(Verdict.Auto) }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+    var tab by rememberSaveable { mutableStateOf(AnalyzerTab.Review) }
+    val byTab = remember(items) { items.groupBy { it.tab() } }
+    val shown = byTab[tab].orEmpty()
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
             Text("Procura cada música no Deezer, no Apple Music e no MusicBrainz pelas tags e pelo nome do arquivo e " +
-                "completa título, artista, álbum, " +
-                "ano, gênero e a capa oficial. Quando título, artista e duração batem, aplica sozinho; o resto fica " +
-                "para você revisar. As correções valem dentro do app: seus arquivos não são alterados.",
+                "completa título, artista, álbum, ano, gênero e a capa oficial. Quando título, artista e duração batem, " +
+                "aplica sozinho; o resto fica para você revisar. Os resultados ficam salvos: a próxima análise continua " +
+                "de onde parou. Seus arquivos não são alterados.",
                 Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("$needing de $total músicas com informação faltando · $corrected já corrigidas",
-                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text("${counts.pending} com informação faltando ainda por analisar · ${counts.analyzed} já analisadas · " +
+                "${counts.corrected} corrigidas", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.running) {
                     OutlinedButton(onClick = onStop) { Text("Parar") }
                 } else {
-                    Button(onClick = { onAnalyze(false) }, enabled = needing > 0) { Text("Analisar as com problemas") }
-                    OutlinedButton(onClick = { onAnalyze(true) }) { Text("Todas") }
+                    Button(onClick = { onAnalyze(false) }, enabled = counts.pending > 0) {
+                        Text(if (counts.analyzed > 0) "Continuar análise" else "Analisar as com problemas")
+                    }
+                    OutlinedButton(onClick = { onAnalyze(true) }, enabled = counts.pendingAll > 0) { Text("Todas") }
                 }
             }
             if (state.running || state.total > 0) {
                 LinearProgressIndicator(progress = { if (state.total > 0) state.done.toFloat() / state.total else 0f },
                     Modifier.fillMaxWidth())
-                val applied = state.items.count { it.applied }
-                val review = state.items.count { it.verdict == Verdict.Review && !it.applied }
-                val missing = state.items.count { it.verdict == Verdict.NotFound && !it.applied }
-                Text("${state.done} de ${state.total} · $applied corrigidas · $review para revisar · $missing não encontradas",
+                Text("${state.done} de ${state.total} nesta análise" + if (state.running) "" else " · parada",
                     Modifier.padding(vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
             }
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (state.items.isNotEmpty()) {
-                Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(filter == Verdict.Auto, { filter = Verdict.Auto }, label = { Text("Corrigidas") })
-                    FilterChip(filter == Verdict.Review, { filter = Verdict.Review }, label = { Text("Revisar") })
-                    FilterChip(filter == Verdict.NotFound, { filter = Verdict.NotFound }, label = { Text("Não achadas") })
-                }
-                if (filter == Verdict.Auto && state.items.any { it.applied }) {
-                    TextButton(onClick = onUndoAll) { Text("Desfazer todas") }
-                }
-                val waiting = state.items.count { it.verdict == Verdict.Review && !it.applied && it.proposal != null }
-                if (filter == Verdict.Review && waiting > 0) {
-                    Button(onClick = onAcceptAll, Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Text("Aceitar todas ($waiting)")
+            if (items.isNotEmpty()) {
+                androidx.compose.foundation.layout.FlowRow(Modifier.padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AnalyzerTab.entries.forEach { option ->
+                        val count = byTab[option]?.size ?: 0
+                        if (option != AnalyzerTab.Ignored || count > 0) {
+                            FilterChip(tab == option, { tab = option }, label = { Text("${option.title} ($count)") })
+                        }
                     }
                 }
-                if (filter != Verdict.Auto) {
-                    Text("Nenhuma serve? Toque em Procurar para buscar à mão nas fontes e escolher.",
+                when (tab) {
+                    AnalyzerTab.Corrected -> if (shown.any { it.manual == null }) {
+                        TextButton(onClick = onUndoAll) { Text("Desfazer as do analisador") }
+                    }
+                    AnalyzerTab.Review -> if (shown.isNotEmpty()) {
+                        val accepting = state.accepting
+                        Button(onClick = onAcceptAll, Modifier.fillMaxWidth().padding(vertical = 4.dp), enabled = accepting == null) {
+                            Text(if (accepting != null) "Aceitando ${accepting.first + 1} de ${accepting.second}…"
+                                else "Aceitar todas (${shown.size})")
+                        }
+                        if (accepting != null) LinearProgressIndicator(
+                            progress = { (accepting.first + 1f) / accepting.second }, Modifier.fillMaxWidth())
+                    }
+                    AnalyzerTab.NotFound -> if (shown.isNotEmpty() && !state.running) {
+                        TextButton(onClick = onRetryNotFound) { Text("Procurar de novo as não achadas") }
+                    }
+                    AnalyzerTab.Ignored -> Text("Não são analisadas nem aparecem nas listas. Toque em Voltar para trazer uma de volta.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (tab == AnalyzerTab.Review || tab == AnalyzerTab.NotFound) {
+                    Text("Nenhuma serve? Procurar busca à mão nas fontes; Ignorar tira a música da lista de vez.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (shown.isEmpty()) Text("Nada aqui.", Modifier.padding(vertical = 16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        val shown = state.items.filter {
-            when (filter) {
-                Verdict.Auto -> it.applied
-                Verdict.Review -> it.verdict == Verdict.Review && !it.applied
-                // Corrected by hand (or accepted): out of the lists still to deal with.
-                Verdict.NotFound -> it.verdict == Verdict.NotFound && !it.applied
-            }
-        }
-        items(shown, key = { it.song.id }) { item -> AnalysisRow(item, onAccept, onUndo, onSearch) }
+        items(shown, key = { it.song.id }) { item -> AnalysisRow(item, onAccept, onUndo, onSearch, onIgnore, onUnignore) }
     }
 }
 
 @Composable
-private fun AnalysisRow(item: AnalysisItem, onAccept: (AnalysisItem) -> Unit, onUndo: (AnalysisItem) -> Unit,
-                        onSearch: (AnalysisItem) -> Unit) {
+private fun AnalysisRow(
+    item: AnalysisItem,
+    onAccept: (AnalysisItem) -> Unit,
+    onUndo: (AnalysisItem) -> Unit,
+    onSearch: (AnalysisItem) -> Unit,
+    onIgnore: (AnalysisItem) -> Unit,
+    onUnignore: (AnalysisItem) -> Unit,
+) {
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Cover(item.song.artUri, 44.dp)
@@ -257,23 +295,35 @@ private fun AnalysisRow(item: AnalysisItem, onAccept: (AnalysisItem) -> Unit, on
                     Text("→ ${manual.artist} — ${manual.title}", maxLines = 1, overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.SemiBold)
                     Text(listOfNotNull(manual.album.ifBlank { null }, manual.year.takeIf { it > 0 }?.toString(), "corrigida à mão")
-                        .joinToString(" · "), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary)
+                        .joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 } else item.proposal?.let { proposal ->
                     val o = proposal.override
                     Text("→ ${o.artist} — ${o.title}", maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
                     Text(listOfNotNull(o.album.ifBlank { null }, o.year.takeIf { it > 0 }?.toString(), proposal.source.label,
-                        "confiança ${proposal.score}")
-                        .joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                        "confiança ${proposal.score}").joinToString(" · "), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         Row(Modifier.fillMaxWidth().padding(start = 56.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            OutlinedButton(onClick = { onSearch(item) }) { Text("Procurar") }
-            when {
-                item.applied -> OutlinedButton(onClick = { onUndo(item) }) { Text("Desfazer") }
-                item.proposal != null -> Button(onClick = { onAccept(item) }) { Text("Aceitar") }
+            when (item.tab()) {
+                AnalyzerTab.Corrected -> {
+                    OutlinedButton(onClick = { onSearch(item) }) { Text("Procurar") }
+                    OutlinedButton(onClick = { onUndo(item) }) { Text("Desfazer") }
+                }
+                AnalyzerTab.Review -> {
+                    TextButton(onClick = { onIgnore(item) }) { Text("Ignorar") }
+                    OutlinedButton(onClick = { onSearch(item) }) { Text("Procurar") }
+                    Button(onClick = { onAccept(item) }) { Text("Aceitar") }
+                }
+                AnalyzerTab.NotFound -> {
+                    TextButton(onClick = { onIgnore(item) }) { Text("Ignorar") }
+                    OutlinedButton(onClick = { onSearch(item) }) { Text("Procurar") }
+                }
+                AnalyzerTab.Ignored -> {
+                    OutlinedButton(onClick = { onSearch(item) }) { Text("Procurar") }
+                    Button(onClick = { onUnignore(item) }) { Text("Voltar") }
+                }
             }
         }
     }

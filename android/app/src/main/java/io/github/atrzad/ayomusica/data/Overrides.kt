@@ -18,6 +18,8 @@ data class SongOverride(
     val genre: String = "",
     val coverFile: String? = null,
     val source: String = "deezer",
+    /** Saved on "Corrigir informações" (not accepted from the analyzer). */
+    val byHand: Boolean = false,
 )
 
 class Overrides(private val file: File) {

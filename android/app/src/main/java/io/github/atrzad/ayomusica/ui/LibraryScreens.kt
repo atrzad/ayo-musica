@@ -46,6 +46,7 @@ import io.github.atrzad.ayomusica.data.Group
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.IconButton
@@ -203,6 +204,7 @@ fun PlaylistsScreen(playlists: List<Playlist>, count: (Playlist) -> Int, onOpen:
                     AutoList.MostPlayed -> Icons.Rounded.TrendingUp
                     AutoList.Recent -> Icons.Rounded.History
                     AutoList.Added -> Icons.Rounded.NewReleases
+                    AutoList.NoShuffle -> Icons.Rounded.Block
                 }, null)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -334,6 +336,8 @@ fun AutoListScreen(list: AutoList, songs: List<Song>, currentId: String?, action
                     AutoList.Favorites -> "Toque no coração da tela cheia ou use Favoritar no menu ⋮ de uma música."
                     AutoList.MostPlayed, AutoList.Recent -> "Uma música conta depois de tocar metade (ou 4 minutos)."
                     AutoList.Added -> "Nenhuma música no celular."
+                    AutoList.NoShuffle -> "Nenhuma. No menu ⋮ de uma música, “Não tocar no aleatório” a coloca aqui: ela " +
+                        "não aparece quando você ouve no aleatório, mas toca quando você a escolhe."
                 }, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

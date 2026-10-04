@@ -50,9 +50,38 @@ class PlaybackService : MediaSessionService() {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) = listening.playing(isPlaying)
 
+            private var lastIndex = player.currentMediaItemIndex
+            private var skipping = 0
+
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 listening.finish(reason)
                 listening.start(mediaItem, player)
+                if (skipBlocked(player, mediaItem, reason)) return
+                lastIndex = player.currentMediaItemIndex
+            }
+
+            /**
+             * Shuffle blacklist: a song on it that comes up in shuffle (on its own or with next/previous) is passed over,
+             * in the direction the person was going. Picking it from a list still plays it (shuffle is off then).
+             */
+            private fun skipBlocked(player: Player, item: MediaItem?, reason: Int): Boolean {
+                val id = item?.mediaId?.toLongOrNull()
+                val passing = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK
+                if (!player.shuffleModeEnabled || !passing || id == null || !stats.isNoShuffle(id) ||
+                    skipping >= player.mediaItemCount) {
+                    skipping = 0
+                    return false
+                }
+                skipping++
+                val timeline = player.currentTimeline
+                val backward = !timeline.isEmpty && lastIndex in 0 until timeline.windowCount &&
+                    player.currentMediaItemIndex == timeline.getPreviousWindowIndex(lastIndex, Player.REPEAT_MODE_OFF, true)
+                when {
+                    backward && player.hasPreviousMediaItem() -> player.seekToPreviousMediaItem()
+                    player.hasNextMediaItem() -> player.seekToNextMediaItem()
+                    else -> { skipping = 0; return false }
+                }
+                return true
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {

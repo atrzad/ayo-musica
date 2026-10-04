@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -97,6 +98,18 @@ data class AnalysisItem(
     val applied: Boolean = false,
     /** Corrected by hand on "Corrigir informações": what was saved (it leaves the review lists). */
     val manual: io.github.atrzad.ayomusica.data.SongOverride? = null,
+    /** The person chose to ignore it: out of the lists, never analyzed again. */
+    val ignored: Boolean = false,
+)
+
+/** Numbers for the analyzer page. */
+data class AnalyzerCounts(
+    /** Songs with missing information not looked up yet (the next "Analisar" goes through these). */
+    val pending: Int = 0,
+    /** All songs not looked up yet ("Todas"). */
+    val pendingAll: Int = 0,
+    val analyzed: Int = 0,
+    val corrected: Int = 0,
 )
 
 /** The manual search on the "Corrigir informações" page. */
@@ -108,12 +121,14 @@ data class MetaSearchState(
     val failed: List<Source> = emptyList(),
 )
 
+/** The run in progress (the results themselves live in [AnalysisStore]). */
 data class AnalysisState(
     val running: Boolean = false,
     val done: Int = 0,
     val total: Int = 0,
-    val items: List<AnalysisItem> = emptyList(),
     val error: String? = null,
+    /** "Aceitar todas" in progress: how many done of how many. */
+    val accepting: Pair<Int, Int>? = null,
 )
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
@@ -170,10 +185,34 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val autoCounts: StateFlow<Map<AutoList, Int>> = combine(songs, statsStore.all) { list, stats ->
         AutoList.entries.associateWith { it.songs(list, stats).size }
     }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
-    /** How many songs the analyzer would look at. */
-    val needingWorkCount: StateFlow<Int> = combine(scanned, overrides.all) { list, fixes ->
-        list.count { it.id !in fixes && Analyzer.needsWork(it) }
-    }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    private val analysisStore = io.github.atrzad.ayomusica.analyzer.AnalysisStore(application)
+    private val originals: StateFlow<Map<Long, Song>> = scanned.map { list -> list.associateBy { it.id } }
+        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /**
+     * The analyzer's lists, worked out from what was saved: its results, the ignored songs and the corrections. Whether
+     * a song is corrected comes only from the corrections file, so accepting, correcting by hand or undoing (even during
+     * a run) moves the song to the right list once and for all.
+     */
+    val analysisItems: StateFlow<List<AnalysisItem>> = combine(analysisStore.data, overrides.all, originals) { data, fixes, songs ->
+        data.results.mapNotNull { (id, result) ->
+            val song = songs[id] ?: return@mapNotNull null
+            val fix = fixes[id]
+            AnalysisItem(song, result.verdict, result.proposal, applied = fix != null, manual = fix?.takeIf { it.byHand },
+                ignored = id in data.ignored)
+        }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val analyzerCounts: StateFlow<AnalyzerCounts> = combine(scanned, overrides.all, analysisStore.data) { list, fixes, data ->
+        var pending = 0
+        var pendingAll = 0
+        for (song in list) {
+            if (song.id in fixes || song.id in data.ignored || song.id in data.results) continue
+            pendingAll++
+            if (Analyzer.needsWork(song)) pending++
+        }
+        AnalyzerCounts(pending, pendingAll, data.results.size, fixes.size)
+    }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, AnalyzerCounts())
 
     private var lyricsJob: Job? = null
     private var analysisJob: Job? = null
@@ -266,8 +305,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── playing ──────────────────────────────────────────────────────────
-    fun play(list: List<Song>, start: Int = 0, shuffle: Boolean = false) =
-        player.play(list.map { it.toMediaItem() }, start, shuffle)
+    fun play(list: List<Song>, start: Int = 0, shuffle: Boolean = false) {
+        // In shuffle the blacklisted songs stay out (unless that leaves nothing).
+        val songs = if (shuffle) list.filterNot { statsStore.isNoShuffle(it.id) }.ifEmpty { list } else list
+        player.play(songs.map { it.toMediaItem() }, start, shuffle)
+    }
+
+    fun isNoShuffle(song: Song) = statsStore.isNoShuffle(song.id)
+
+    fun setNoShuffle(list: List<Song>, on: Boolean) = statsStore.setNoShuffle(list.map { it.id }, on)
 
     fun playNext(list: List<Song>) = player.playNext(list.map { it.toMediaItem() })
 
@@ -406,36 +452,57 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── analyzer ─────────────────────────────────────────────────────────
+    /** Looks up the songs not analyzed yet (going on from where the last run stopped). */
     fun analyze(all: Boolean) {
         if (analysis.value.running) return
         analysisJob = viewModelScope.launch {
             val fixes = overrides.all.value
+            val data = analysisStore.data.value
             val targets = withContext(Dispatchers.Default) {
-                scanned.value.filter { it.id !in fixes && (all || Analyzer.needsWork(it)) }
+                scanned.value.filter {
+                    it.id !in fixes && it.id !in data.ignored && it.id !in data.results && (all || Analyzer.needsWork(it))
+                }
             }
             analysis.value = AnalysisState(running = true, total = targets.size)
             val analyzer = Analyzer()
-            val found = mutableListOf<AnalysisItem>()
-            for ((index, song) in targets.withIndex()) {
-                if (!isActive) break
-                val outcome = withContext(Dispatchers.IO) { runCatching { analyzer.analyze(song) } }
-                val (verdict, proposal) = outcome.getOrElse {
-                    analysis.value = analysis.value.copy(running = false, error = "Sem conexão com as fontes (Deezer, Apple Music, MusicBrainz).")
-                    return@launch
+            try {
+                for ((index, song) in targets.withIndex()) {
+                    if (!isActive) break
+                    val outcome = withContext(Dispatchers.IO) { runCatching { analyzer.analyze(song) } }
+                    val (verdict, proposal) = outcome.getOrElse {
+                        analysis.update {
+                            it.copy(running = false, error = "Sem conexão com as fontes (Deezer, Apple Music, MusicBrainz). " +
+                                "O que já foi analisado ficou salvo.")
+                        }
+                        return@launch
+                    }
+                    // Skipped if, meanwhile, the person corrected or ignored it.
+                    if (song.id in overrides.all.value || song.id in analysisStore.data.value.ignored) continue
+                    analysisStore.put(song.id, io.github.atrzad.ayomusica.analyzer.SavedResult(verdict, proposal))
+                    if (verdict == Verdict.Auto && proposal != null) applyProposal(song, proposal)
+                    analysis.update { it.copy(done = index + 1) }
                 }
-                var item = AnalysisItem(song, verdict, proposal)
-                if (verdict == Verdict.Auto && proposal != null) item = item.copy(applied = applyProposal(song, proposal))
-                found += item
-                analysis.value = analysis.value.copy(done = index + 1, items = found.toList())
+            } finally {
+                analysisStore.flush()
+                analysis.update { it.copy(running = false) }
             }
-            analysis.value = analysis.value.copy(running = false)
         }
     }
 
     fun stopAnalysis() {
         analysisJob?.cancel()
-        analysis.value = analysis.value.copy(running = false)
+        analysis.update { it.copy(running = false) }
     }
+
+    /** Looks up the not-found songs again on the next run (sources change, tags get fixed). */
+    fun retryNotFound() {
+        analysisStore.forget(Verdict.NotFound)
+        analyze(all = true)
+    }
+
+    fun ignore(item: AnalysisItem) = analysisStore.ignore(item.song.id)
+
+    fun unignore(item: AnalysisItem) = analysisStore.unignore(item.song.id)
 
     private suspend fun applyProposal(song: Song, proposal: Proposal): Boolean {
         writeOverride(song.id, proposal.override, proposal.covers, useCover = true)
@@ -485,15 +552,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveOverride(id: Long, override: io.github.atrzad.ayomusica.data.SongOverride, covers: List<String>, useCover: Boolean) {
         viewModelScope.launch {
-            writeOverride(id, override, covers, useCover)
-            updateItem(id) { it.copy(applied = true, manual = override) }
+            writeOverride(id, override.copy(byHand = true), covers, useCover)
         }
     }
 
     /** Back to what the file's tags say. */
     fun restoreTags(id: Long) {
         overrides.remove(id)
-        updateItem(id) { it.copy(applied = false, manual = null) }
     }
 
     fun clearMetaSearch() {
@@ -503,35 +568,30 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun accept(item: AnalysisItem) {
         val proposal = item.proposal ?: return
-        viewModelScope.launch {
-            applyProposal(item.song, proposal)
-            updateItem(item.song.id) { it.copy(applied = true) }
-        }
+        viewModelScope.launch { applyProposal(item.song, proposal) }
     }
 
-    fun undo(item: AnalysisItem) {
-        overrides.remove(item.song.id)
-        updateItem(item.song.id) { it.copy(applied = false, manual = null) }
-    }
+    fun undo(item: AnalysisItem) = overrides.remove(item.song.id)
 
-    /** Accepts every suggestion still waiting for review. */
+    /** Accepts every suggestion still waiting for review, one after the other (once: a second tap does nothing). */
     fun acceptAll() {
-        val waiting = analysis.value.items.filter { it.verdict == Verdict.Review && !it.applied && it.proposal != null }
+        if (analysis.value.accepting != null) return
+        val waiting = analysisItems.value.filter { !it.applied && !it.ignored && it.proposal != null }
+        if (waiting.isEmpty()) return
         viewModelScope.launch {
-            for (item in waiting) {
-                applyProposal(item.song, item.proposal!!)
-                updateItem(item.song.id) { it.copy(applied = true) }
+            try {
+                for ((index, item) in waiting.withIndex()) {
+                    analysis.update { it.copy(accepting = index to waiting.size) }
+                    if (item.song.id !in overrides.all.value) applyProposal(item.song, item.proposal!!)
+                }
+            } finally {
+                analysis.update { it.copy(accepting = null) }
             }
         }
     }
 
-    fun undoAll() = analysis.value.items.filter { it.applied }.forEach(::undo)
-
-    private fun updateItem(id: Long, change: (AnalysisItem) -> AnalysisItem) {
-        analysis.value = analysis.value.copy(items = analysis.value.items.map { if (it.song.id == id) change(it) else it })
-    }
-
-    fun correctedCount() = overrides.all.value.size
+    /** Undoes what the analyzer applied (corrections made by hand stay). */
+    fun undoAll() = analysisItems.value.filter { it.applied && it.manual == null }.forEach(::undo)
 
     // ── playlists ────────────────────────────────────────────────────────
     fun playlistSongs(playlist: Playlist): List<Song> = playlist.songIds.mapNotNull { byId.value[it] }

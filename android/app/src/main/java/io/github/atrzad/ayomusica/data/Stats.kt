@@ -12,7 +12,14 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
-data class SongStats(val plays: Int = 0, val skips: Int = 0, val lastPlayed: Long = 0, val favorite: Boolean = false)
+data class SongStats(
+    val plays: Int = 0,
+    val skips: Int = 0,
+    val lastPlayed: Long = 0,
+    val favorite: Boolean = false,
+    /** On the shuffle blacklist: never comes up while listening in shuffle (still plays when picked). */
+    val noShuffle: Boolean = false,
+)
 
 /** Plays, skips, last time played and favorites per song (by MediaStore id), in a JSON file. */
 class Stats(private val file: File) {
@@ -47,6 +54,15 @@ class Stats(private val file: File) {
 
     fun isFavorite(id: Long) = state.value[id]?.favorite == true
 
+    fun setNoShuffle(ids: Collection<Long>, on: Boolean) {
+        synchronized(this) {
+            state.value = state.value + ids.associateWith { id -> (state.value[id] ?: SongStats()).copy(noShuffle = on) }
+        }
+        change(ids.firstOrNull() ?: return) { it }  // writes the file
+    }
+
+    fun isNoShuffle(id: Long) = state.value[id]?.noShuffle == true
+
     companion object {
         /** A play counts after half the song or 4 minutes, like the desktop app; earlier means a skip. */
         fun counts(listenedMs: Long, durationMs: Long) = listenedMs >= minOf(durationMs / 2, 4 * 60_000L).coerceAtLeast(10_000)
@@ -61,7 +77,8 @@ class Stats(private val file: File) {
 
 /** The automatic lists shown with the playlists. */
 enum class AutoList(val title: String) {
-    Favorites("Curtidas"), MostPlayed("Mais tocadas"), Recent("Tocadas recentemente"), Added("Adicionadas recentemente");
+    Favorites("Curtidas"), MostPlayed("Mais tocadas"), Recent("Tocadas recentemente"), Added("Adicionadas recentemente"),
+    NoShuffle("Fora do aleatório");
 
     fun songs(library: List<Song>, stats: Map<Long, SongStats>, limit: Int = 100): List<Song> = when (this) {
         Favorites -> library.filter { stats[it.id]?.favorite == true }
@@ -71,5 +88,6 @@ enum class AutoList(val title: String) {
         Recent -> library.filter { (stats[it.id]?.lastPlayed ?: 0) > 0 }
             .sortedByDescending { stats[it.id]?.lastPlayed ?: 0 }.take(limit)
         Added -> library.sortedByDescending { it.dateAdded }.take(limit)
+        NoShuffle -> library.filter { stats[it.id]?.noShuffle == true }
     }
 }

@@ -101,6 +101,9 @@ class SongActions(
     val isFavorite: (Song) -> Boolean = { false },
     val toggleFavorite: ((Song) -> Unit)? = null,
     val fixInfo: ((Song) -> Unit)? = null,
+    val isNoShuffle: (Song) -> Boolean = { false },
+    /** Puts the song on the shuffle blacklist, or takes it off. */
+    val toggleNoShuffle: ((Song) -> Unit)? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -160,6 +163,10 @@ fun SongRow(
                 }
                 actions.goToArtist?.let { go ->
                     DropdownMenuItem(text = { Text("Ir para o artista") }, onClick = { menu = false; go(song) })
+                }
+                actions.toggleNoShuffle?.let { toggle ->
+                    DropdownMenuItem(text = { Text(if (actions.isNoShuffle(song)) "Voltar a tocar no aleatório" else "Não tocar no aleatório") },
+                        onClick = { menu = false; toggle(song) })
                 }
                 actions.fixInfo?.let { fix ->
                     DropdownMenuItem(text = { Text("Corrigir informações…") }, onClick = { menu = false; fix(song) })

@@ -36,7 +36,18 @@ data class ThemeSpec(val id: String, val name: String, val light: Palette, val d
 @Serializable
 private data class ThemeFile(val themes: List<ThemeSpec>)
 
-enum class Mode(val title: String) { Auto("Automático"), Light("Claro"), Dark("Escuro") }
+enum class Mode(val title: String) { Auto("Automático"), Light("Claro"), Dark("Escuro"), Amoled("AMOLED") }
+
+/** AMOLED: the dark colors on pure black (pixels off on AMOLED screens), the theme's tint kept on raised surfaces. */
+fun ColorScheme.amoled(): ColorScheme {
+    fun raise(color: Color, amount: Float) = lerp(Color.Black, color, amount)
+    return copy(
+        background = Color.Black, surface = Color.Black, surfaceDim = Color.Black, surfaceContainerLowest = Color.Black,
+        surfaceContainerLow = raise(surfaceContainerLow, 0.45f), surfaceContainer = raise(surfaceContainer, 0.55f),
+        surfaceContainerHigh = raise(surfaceContainerHigh, 0.65f), surfaceContainerHighest = raise(surfaceContainerHighest, 0.75f),
+        surfaceBright = raise(surfaceBright, 0.8f), surfaceVariant = raise(surfaceVariant, 0.7f),
+    )
+}
 
 const val MONO = "mono"
 /** Android 12+: the colors Android takes from the wallpaper. */
@@ -90,15 +101,16 @@ fun AyoTheme(themeId: String = MONO, mode: Mode = Mode.Auto, content: @Composabl
     val dark = when (mode) {
         Mode.Auto -> isSystemInDarkTheme()
         Mode.Light -> false
-        Mode.Dark -> true
+        Mode.Dark, Mode.Amoled -> true
     }
-    val colors = if (themeId == WALLPAPER && Themes.wallpaperAvailable) {
+    val baseColors = if (themeId == WALLPAPER && Themes.wallpaperAvailable) {
         if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
         val spec = Themes.all(context).let { all -> all.firstOrNull { it.id == themeId } ?: all.firstOrNull() }
         if (spec == null) (if (dark) darkColorScheme() else lightColorScheme())
         else scheme(if (dark) spec.dark else spec.light, dark)
     }
+    val colors = if (mode == Mode.Amoled) baseColors.amoled() else baseColors
     val spec = Themes.all(context).firstOrNull { it.id == themeId }
     if (spec?.style == "pixel") {
         // Pixel: a pixel font everywhere and square corners, like an old handheld.

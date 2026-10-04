@@ -79,7 +79,8 @@ private val STEPS = listOf(
         Icons.Rounded.Lyrics, listOf(Motion.Up)),
     Step("Modos",
         "Em Configurações → Modo: o modo carro deita a tela e deixa só botões grandes; o modo simplificado troca " +
-            "os gestos por botões, com a música tocando numa barra embaixo, acima das abas fixas. Também dá para escolher tema, equalizador e as abas.",
+            "os gestos por botões, com a música tocando numa barra embaixo, acima das abas fixas. Também dá para escolher tema (inclusive AMOLED, preto puro), tela cheia, equalizador " +
+            "e as abas. No menu ⋮ de uma música, “Não tocar no aleatório” a deixa de fora quando você ouve no aleatório.",
         Icons.Rounded.DirectionsCar, emptyList()),
 )
 

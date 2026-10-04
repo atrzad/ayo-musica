@@ -11,6 +11,7 @@ import java.net.URLEncoder
 import java.util.Locale
 
 /** The online catalogs songs are identified in. None of them needs an account or a key. */
+@Serializable
 enum class Source(val label: String) {
     Deezer("Deezer"),
     ITunes("Apple Music"),

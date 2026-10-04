@@ -7,8 +7,10 @@ import io.github.atrzad.ayomusica.lyrics.Clean
 import kotlin.math.abs
 
 /** A proposal for one song and how sure we are (0..100). */
+@kotlinx.serialization.Serializable
 data class Proposal(val override: SongOverride, val covers: List<String>, val score: Int, val label: String, val source: Source)
 
+@kotlinx.serialization.Serializable
 enum class Verdict { Auto, Review, NotFound }
 
 /**

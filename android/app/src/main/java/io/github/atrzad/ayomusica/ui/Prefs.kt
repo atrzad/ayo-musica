@@ -38,6 +38,9 @@ class Prefs(context: Context) {
     val visualizer: StateFlow<Boolean> = _visualizer
     private val _tutorialSeen = flow(store.getBoolean("tutorial_seen", false))
     val tutorialSeen: StateFlow<Boolean> = _tutorialSeen
+    private val _fullscreen = flow(store.getBoolean("fullscreen", false))
+    /** Hide the status and navigation bars. */
+    val fullscreen: StateFlow<Boolean> = _fullscreen
     private val _lyricsOnline = flow(store.getBoolean("lyrics_online", true))
     val lyricsOnline: StateFlow<Boolean> = _lyricsOnline
 
@@ -46,6 +49,7 @@ class Prefs(context: Context) {
     fun setMode(value: Mode) { _mode.value = value; store.edit().putString("mode", value.name).apply() }
     fun setVisualizer(on: Boolean) { _visualizer.value = on; store.edit().putBoolean("visualizer", on).apply() }
     fun setTutorialSeen(seen: Boolean) { _tutorialSeen.value = seen; store.edit().putBoolean("tutorial_seen", seen).apply() }
+    fun setFullscreen(on: Boolean) { _fullscreen.value = on; store.edit().putBoolean("fullscreen", on).apply() }
     fun setLyricsOnline(on: Boolean) { _lyricsOnline.value = on; store.edit().putBoolean("lyrics_online", on).apply() }
 
     fun setTabs(value: List<Tab>) {

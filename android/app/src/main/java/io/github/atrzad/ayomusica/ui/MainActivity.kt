@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
             val theme by viewModel.prefs.theme.collectAsStateWithLifecycle()
             val mode by viewModel.prefs.mode.collectAsStateWithLifecycle()
             val useMode by viewModel.prefs.useMode.collectAsStateWithLifecycle()
+            val fullscreen by viewModel.prefs.fullscreen.collectAsStateWithLifecycle()
             // Car mode: the screen lies sideways and stays on.
             LaunchedEffect(useMode) {
                 val car = useMode == UseMode.Car
@@ -39,12 +40,23 @@ class MainActivity : ComponentActivity() {
             val dark = when (mode) {
                 Mode.Auto -> isSystemInDarkTheme()
                 Mode.Light -> false
-                Mode.Dark -> true
+                Mode.Dark, Mode.Amoled -> true
             }
             // Status and navigation bar icons follow the chosen light/dark, not only the system's.
             LaunchedEffect(dark) {
                 val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
                 enableEdgeToEdge(style, style)
+            }
+            // Tela cheia: status and navigation bars hidden; a swipe from the edge shows them for a moment.
+            LaunchedEffect(fullscreen) {
+                val bars = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                val types = androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                if (fullscreen) {
+                    bars.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    bars.hide(types)
+                } else {
+                    bars.show(types)
+                }
             }
             AyoTheme(theme, mode) { App(viewModel, packageManager.getPackageInfo(packageName, 0).versionName ?: "") }
         }

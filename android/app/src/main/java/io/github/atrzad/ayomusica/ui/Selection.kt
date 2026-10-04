@@ -57,6 +57,7 @@ fun SelectionBar(
     onPlayNext: () -> Unit,
     onEnqueue: () -> Unit,
     onLike: () -> Unit,
+    onNoShuffle: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).statusBarsPadding()) {
@@ -79,6 +80,8 @@ fun SelectionBar(
                     DropdownMenuItem(text = { Text("Adicionar à playlist…") }, enabled = count > 0,
                         onClick = { menu = false; onAddToPlaylist() })
                     DropdownMenuItem(text = { Text("Curtir") }, enabled = count > 0, onClick = { menu = false; onLike() })
+                    DropdownMenuItem(text = { Text("Não tocar no aleatório") }, enabled = count > 0,
+                        onClick = { menu = false; onNoShuffle() })
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text("Selecionar todas") }, onClick = { menu = false; onSelectAll() })
                     DropdownMenuItem(text = { Text("Limpar seleção") }, onClick = { menu = false; onClose() })
