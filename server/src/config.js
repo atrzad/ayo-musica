@@ -9,7 +9,8 @@ export const config = {
   host: process.env.HOST || '127.0.0.1',
   dataDir: process.env.DATA_DIR || join(homedir(), '.local/share/ayo-musica-sync'),
   // OAuth client ids whose tokens are accepted: the Web one (used by the Android app) and the Desktop one.
-  googleClientIds: list(process.env.GOOGLE_CLIENT_IDS),
+  googleClientIds: [...new Set([...list(process.env.GOOGLE_CLIENT_IDS), process.env.GOOGLE_WEB_CLIENT_ID,
+    process.env.GOOGLE_DESKTOP_CLIENT_ID].filter(Boolean))],
   // Given to the apps (GET /api/config) so they need no rebuild: the Web client id (Android asks Google for a token
   // meant for it) and the Desktop client (installed-app flow; Google does not treat its secret as confidential).
   webClientId: process.env.GOOGLE_WEB_CLIENT_ID || '',
