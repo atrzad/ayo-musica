@@ -1,0 +1,19 @@
+[Unit]
+Description=Ayo Música sync - conta Google e sincronização entre aparelhos (porta 3600, só localhost)
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/ayo-musica/server
+ExecStart=/usr/sbin/node --env-file=%h/Projects/ayo-musica/server/.env --disable-warning=ExperimentalWarning src/index.js
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+UMask=0077
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target

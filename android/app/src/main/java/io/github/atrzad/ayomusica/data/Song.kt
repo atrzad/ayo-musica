@@ -28,10 +28,22 @@ data class Song(
     val genre: String = "",
     /** Official cover downloaded by the analyzer (a file in the app's storage), shown instead of the file's. */
     val coverFile: String? = null,
+    /** A song of the cloud library (its server id; 0 for this phone's songs, whose id is MediaStore's). */
+    val cloudId: Long = 0,
+    /** The cloud song downloaded on this phone (played from here, offline). */
+    val cloudFile: String? = null,
+    /** The cloud song has a cover picture on the server. */
+    val cloudCover: Boolean = false,
 ) {
-    val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
-    /** Where the cover comes from: the analyzer's official cover, or the song file's own picture. */
-    val artUri: Uri get() = coverFile?.let { Uri.fromFile(java.io.File(it)) } ?: uri
+    val inCloud: Boolean get() = cloudId > 0
+    val uri: Uri get() = when {
+        cloudFile != null -> Uri.fromFile(java.io.File(cloudFile))
+        cloudId > 0 -> Uri.parse("${io.github.atrzad.ayomusica.sync.Account.server}/api/tracks/$cloudId/audio")
+        else -> ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+    }
+    /** Where the cover comes from: the analyzer's official cover, the cloud's, or the song file's own picture. */
+    val artUri: Uri get() = coverFile?.let { Uri.fromFile(java.io.File(it)) }
+        ?: if (cloudId > 0) Uri.parse("${io.github.atrzad.ayomusica.sync.Account.server}/api/tracks/$cloudId/cover") else uri
     val shownGenre: String get() = genre.ifBlank { "Sem gênero" }
     val folder: String get() = relativePath.trimEnd('/').ifBlank { "Pasta principal" }
     val shownArtist: String get() = artist.ifBlank { UNKNOWN_ARTIST }

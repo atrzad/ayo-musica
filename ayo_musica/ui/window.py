@@ -14,7 +14,10 @@ from ..tasks import background
 from .. import covers as cover_cache
 from .. import m3u, tags
 from ..db import MusicDB
+from .. import engine
 from ..engine import Player
+from ..cloud.service import CloudService
+from .cloud_ui import CloudUi, track_menu_section
 from ..library import AUDIO_EXTENSIONS, read_changes, scan_music_folder
 from ..queue import REPEAT_CYCLE, REPEAT_OFF, SHUFFLE_OFF, SHUFFLE_TRACKS, PlayQueue
 from ..widgets import confirm
@@ -82,6 +85,9 @@ class MusicPage(Gtk.Box):
         output = self.store.setting("music.output")
         if output:
             self.player.set_output(output)
+        # Account and cloud (sync, cloud songs, devices); its songs stream with the session.
+        self.cloud = CloudService(self)
+        engine.HTTP_HEADERS = self.cloud.http_headers
 
         self._install_actions()
         self._build_header()
@@ -89,6 +95,10 @@ class MusicPage(Gtk.Box):
                                           sidebar_width_fraction=0.2)
         self.split.set_sidebar(self._build_sidebar())
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.cloud_ui = CloudUi(self)
+        content.append(self.cloud_ui.banner)
+        content.append(self.cloud_ui.source)
+        self.window.header.pack_end(self.cloud_ui.devices_button)
         self.search_bar = Gtk.SearchBar(show_close_button=True)
         self.search_entry = Gtk.SearchEntry(placeholder_text="Buscar músicas, artistas, álbuns, gêneros…",
                                             hexpand=True)
@@ -164,7 +174,8 @@ class MusicPage(Gtk.Box):
     def _install_actions(self):
         self.actions = Gio.SimpleActionGroup()
         simple = {"choose-folder": self.choose_folder, "add-files": self.add_files, "rescan": self.scan,
-                  "preferences": self.show_preferences, "shortcuts": lambda: self.system.show_shortcuts(), "search": self.toggle_search,
+                  "preferences": self.show_preferences,
+                  "account": lambda: show_preferences(self.window, self, open_account=True), "shortcuts": lambda: self.system.show_shortcuts(), "search": self.toggle_search,
                   "about": lambda: show_about(self.window, __version__),
                   "new-playlist": lambda: self.new_playlist([]), "import-playlist": self.import_playlist,
                   "save-queue": lambda: self.new_playlist(self.queue.items()),
@@ -180,7 +191,10 @@ class MusicPage(Gtk.Box):
                       "properties": lambda p: show_properties(self.window, self.library.get(p[0])),
                       "open-folder": lambda p: open_containing_folder(self.window, p[0]),
                       "remove": self.remove, "new-playlist-with": self.new_playlist,
-                      "identify": lambda p: self.organizer.start(p)}
+                      "identify": lambda p: self.organizer.start(p),
+                      "cloud-download": self.cloud.download, "cloud-upload": self.cloud.upload,
+                      "cloud-remove-download": lambda p: self.cloud.remove_download(p[0]),
+                      "cloud-delete": lambda p: self.cloud.delete(p[0])}
         for name, callback in with_paths.items():
             action = Gio.SimpleAction.new(name, GLib.VariantType.new("as"))
             action.connect("activate", lambda _a, value, c=callback: c(value.unpack()))
@@ -214,6 +228,7 @@ class MusicPage(Gtk.Box):
         playlists.append("Importar playlist (M3U)…", "music.import-playlist")
         menu.append_section(None, playlists)
         other = Gio.Menu()
+        other.append("Conta e nuvem…", "music.account")
         other.append("Preferências", "music.preferences")
         other.append("Atalhos do teclado", "music.shortcuts")
         other.append("Sobre o Ayo Música", "music.about")
@@ -471,6 +486,9 @@ class MusicPage(Gtk.Box):
                                              GLib.Variant("(xax)", (table.playlist_id, table.selected_positions())))
             playlists.append_item(item)
         menu.append_section(None, playlists)
+        cloud = track_menu_section(self, tracks, paths)
+        if cloud is not None:
+            menu.append_section(None, cloud)
         if len(tracks) == 1:
             go = Gio.Menu()
             for title, action in (("Identificar", "music.identify"),
@@ -561,6 +579,7 @@ class MusicPage(Gtk.Box):
             self.queue_view.render(self.queue, self.library)
         self.save_session()
         self.system.changed()
+        self.cloud.publish_soon()
         if announce:
             self.system.notify_track(track)
 
@@ -637,6 +656,7 @@ class MusicPage(Gtk.Box):
 
     def on_state(self):
         self.bar.show_state(self.player)
+        self.cloud.publish_soon()
         self.system.changed("PlaybackStatus", "CanPlay", "CanSeek")
 
     def on_error(self, text):
@@ -1008,7 +1028,7 @@ class MusicPage(Gtk.Box):
 
     # ── library ─────────────────────────────────────────────────────────────────
     def reload_library(self):
-        self.library.load(self.music.library(), root=self.store.music_folder())
+        self.library.load(self.cloud.rows(self.music.library()), root=self.store.music_folder())
         self.sound.reload_gains()
         GLib.timeout_add_seconds(2, self.check_fonts)
         self.update_status()

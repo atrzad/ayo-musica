@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         io.github.atrzad.ayomusica.util.AppLog.init(this)
+        io.github.atrzad.ayomusica.sync.Account.init(this)
         enableEdgeToEdge()
         if (savedInstanceState == null) handle(intent)
         setContent {

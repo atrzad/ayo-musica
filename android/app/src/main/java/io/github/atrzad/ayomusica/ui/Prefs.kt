@@ -60,6 +60,25 @@ class Prefs(context: Context) {
     fun setAcoustidKey(key: String) { _acoustidKey.value = key.trim(); store.edit().putString("acoustid_key", key.trim()).apply() }
     fun setLyricsOnline(on: Boolean) { _lyricsOnline.value = on; store.edit().putBoolean("lyrics_online", on).apply() }
 
+    /** The settings that follow the account to every device (the rest — mode, full screen — belong to each device). */
+    fun synced(): Map<String, String> = mapOf(
+        "theme" to theme.value, "mode" to mode.value.name, "tabs" to tabs.value.joinToString(",") { it.name },
+        "startTab" to startTab.value.name, "lyricsOnline" to lyricsOnline.value.toString(), "shazam" to shazam.value.toString(),
+        "acoustidKey" to acoustidKey.value,
+    )
+
+    fun applySynced(name: String, value: String) {
+        when (name) {
+            "theme" -> setTheme(value)
+            "mode" -> enumValues<io.github.atrzad.ayomusica.ui.theme.Mode>().firstOrNull { it.name == value }?.let(::setMode)
+            "tabs" -> setTabs(value.split(",").mapNotNull { n -> Tab.entries.firstOrNull { it.name == n } })
+            "startTab" -> Tab.entries.firstOrNull { it.name == value }?.let(::setStartTab)
+            "lyricsOnline" -> setLyricsOnline(value == "true")
+            "shazam" -> setShazam(value == "true")
+            "acoustidKey" -> setAcoustidKey(value)
+        }
+    }
+
     fun setTabs(value: List<Tab>) {
         val tabs = value.distinct().ifEmpty { listOf(Tab.Songs) }
         _tabs.value = tabs

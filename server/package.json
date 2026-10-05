@@ -1,0 +1,17 @@
+{
+  "name": "ayo-musica-sync",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Servidor de sincronização do Ayo Música: conta Google, playlists, curtidas, estatísticas, letras e correções entre aparelhos.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "music-metadata": "^12.0.0"
+  },
+  "license": "GPL-3.0-only"
+}

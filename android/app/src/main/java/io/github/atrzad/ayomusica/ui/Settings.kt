@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -55,6 +56,7 @@ import io.github.atrzad.ayomusica.analyzer.Verdict
 import io.github.atrzad.ayomusica.data.Song
 
 private fun SettingsPage.icon(): ImageVector = when (this) {
+    SettingsPage.Account -> Icons.Rounded.Cloud
     SettingsPage.Tutorial -> Icons.Rounded.TouchApp
     SettingsPage.Report -> Icons.Rounded.BugReport
     SettingsPage.Analyzer -> Icons.Rounded.AutoFixHigh
@@ -66,6 +68,7 @@ private fun SettingsPage.icon(): ImageVector = when (this) {
 }
 
 private fun SettingsPage.detail(): String = when (this) {
+    SettingsPage.Account -> "Entre com o Google: mesma biblioteca no celular e no computador"
     SettingsPage.Tutorial -> "Os gestos e botões do app, passo a passo"
     SettingsPage.Report -> "Envie o registro do app quando algo der errado"
     SettingsPage.Analyzer -> "Busca título, artista, álbum, ano e capa oficial das músicas"

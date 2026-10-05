@@ -131,6 +131,13 @@ MIGRATIONS = (
     DROP TABLE IF EXISTS history;
     DELETE FROM settings WHERE key NOT LIKE 'music.%';
     """,
+    # 8 — account sync: the same playlist on every device (uuid), its description, and the synced songs this
+    # computer does not have (kept in order so they are not lost when it syncs back).
+    """
+    ALTER TABLE playlists ADD COLUMN uuid TEXT NOT NULL DEFAULT '';
+    ALTER TABLE playlists ADD COLUMN description TEXT NOT NULL DEFAULT '';
+    ALTER TABLE playlists ADD COLUMN remote_keys TEXT NOT NULL DEFAULT '[]';
+    """,
 )
 
 

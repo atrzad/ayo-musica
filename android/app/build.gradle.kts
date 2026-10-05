@@ -19,7 +19,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = (System.getenv("AYO_VERSION_CODE") ?: "1").toInt()
-        versionName = "1.0.0"
+        versionName = "2.0.0"
         ndk {
             // Phones (arm64) and the emulator (x86_64).
             abiFilters += listOf("arm64-v8a", "x86_64")
@@ -66,6 +66,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {
@@ -97,5 +98,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play)
+    implementation(libs.googleid)
     testImplementation(libs.junit)
 }

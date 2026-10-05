@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -82,6 +83,8 @@ fun PlayerScreen(
     onFixInfo: () -> Unit = {},
     noShuffle: Boolean = false,
     onNoShuffle: () -> Unit = {},
+    /** Other devices of the account (continue, send, control); null when not signed in. */
+    onDevices: (() -> Unit)? = null,
     /** Simplified mode: buttons for previous/next and the lyrics instead of relying on swipes. */
     simple: Boolean = false,
 ) {
@@ -145,6 +148,9 @@ fun PlayerScreen(
                             DropdownMenuItem(text = { Text(if (noShuffle) "Voltar a tocar no aleatório" else "Não tocar no aleatório") },
                                 onClick = { menu = false; onNoShuffle() })
                         }
+                    }
+                    onDevices?.let { open ->
+                        IconButton(onClick = open) { Icon(Icons.Rounded.Devices, "Dispositivos") }
                     }
                     IconButton(onClick = onFavorite) {
                         Icon(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,

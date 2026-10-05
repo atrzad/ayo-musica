@@ -21,6 +21,7 @@ import io.github.atrzad.ayomusica.ui.MainActivity
 @UnstableApi
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
+    private var remote: io.github.atrzad.ayomusica.sync.RemoteLink? = null
     private lateinit var store: QueueStore
     private lateinit var stats: Stats
     private val listening = Listening()
@@ -30,7 +31,18 @@ class PlaybackService : MediaSessionService() {
         io.github.atrzad.ayomusica.util.AppLog.init(this)
         store = QueueStore(this)
         stats = Stats.get(this)
+        io.github.atrzad.ayomusica.sync.Account.init(this)
+        // Cloud songs stream from the sync server: its requests carry the session (read at each request, so signing in
+        // or out needs no restart).
+        val http = androidx.media3.datasource.DefaultHttpDataSource.Factory().setUserAgent("AyoMusica-Android")
+            .setAllowCrossProtocolRedirects(true)
+        val sources = androidx.media3.datasource.ResolvingDataSource.Factory(
+            androidx.media3.datasource.DefaultDataSource.Factory(this, http)) { spec ->
+            val account = io.github.atrzad.ayomusica.sync.Account
+            if (account.owns(spec.uri.toString())) spec.withAdditionalHeaders(mapOf("Authorization" to "Bearer ${account.token}")) else spec
+        }
         val player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(sources))
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
                 true,  // pause for calls and other apps (audio focus)
@@ -39,6 +51,7 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         restore(player)
+        remote = io.github.atrzad.ayomusica.sync.RemoteLink(this, player).also { it.start() }
         PlayerHub.attach(player)
         AudioEffects.attach(this, player.audioSessionId)
         listening.start(player.currentMediaItem, player)
@@ -123,6 +136,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        remote?.stop()
         session?.run {
             listening.finish(Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
             save(player)

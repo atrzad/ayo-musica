@@ -24,6 +24,22 @@ SPECTRUM_BANDS = 48
 MAGNITUDES = re.compile(r"magnitude=\(float\)\{([^}]*)\}")
 
 
+# Extra HTTP headers for a stream, by its address (set by the cloud: its songs stream with the session).
+HTTP_HEADERS = None
+
+
+def _source_setup(_playbin, source):
+    """Runs when playbin makes the source element (it may be on a streaming thread: only reads prepared values)."""
+    if HTTP_HEADERS is None or not source.find_property("extra-headers") or not source.find_property("location"):
+        return
+    headers = HTTP_HEADERS(source.get_property("location") or "")
+    if headers:
+        structure = Gst.Structure.new_empty("extra-headers")
+        for key, value in headers.items():
+            structure.set_value(key, value)
+        source.set_property("extra-headers", structure)
+
+
 def uri_for(location):
     location = str(location)
     if "://" in location:
@@ -60,6 +76,7 @@ class Deck:
         self.path = None
         self._build_filters()
         self.playbin.connect("about-to-finish", player._about_to_finish, self)
+        self.playbin.connect("source-setup", _source_setup)
         self.bus = self.playbin.get_bus()
         self.bus.add_signal_watch()
         self.handler = self.bus.connect("message", player._message, self)

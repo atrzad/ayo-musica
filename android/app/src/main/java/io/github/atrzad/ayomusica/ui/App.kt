@@ -118,6 +118,19 @@ private fun Main(viewModel: MusicViewModel, version: String) {
     val mode by prefs.mode.collectAsStateWithLifecycle()
     val lyricsOnline by prefs.lyricsOnline.collectAsStateWithLifecycle()
     val fullscreen by prefs.fullscreen.collectAsStateWithLifecycle()
+    val accountState by viewModel.account.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val localNotInCloud by viewModel.localNotInCloud.collectAsStateWithLifecycle()
+    val librarySource by viewModel.librarySource.collectAsStateWithLifecycle()
+    val transfers by viewModel.cloud.transfers.collectAsStateWithLifecycle()
+    val devices by viewModel.devices.collectAsStateWithLifecycle()
+    val continueOffer by viewModel.continueOffer.collectAsStateWithLifecycle()
+    var showDevices by remember { mutableStateOf(false) }
+    // Each time the app comes to the front: what are the other devices playing? ("continuar de onde parou")
+    androidx.lifecycle.compose.LifecycleResumeEffect(accountState.signedIn) {
+        viewModel.refreshDevices()
+        onPauseOrDispose { }
+    }
     val lastExit by io.github.atrzad.ayomusica.util.AppLog.lastExitProblem.collectAsStateWithLifecycle()
     val shazamOn by prefs.shazam.collectAsStateWithLifecycle()
     val acoustidKey by prefs.acoustidKey.collectAsStateWithLifecycle()
@@ -171,6 +184,13 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             tell(if (stats[song.id]?.favorite == true) "Tirada das curtidas" else "Adicionada às curtidas")
         },
         fixInfo = { song -> openFix(song.id) },
+        cloud = if (accountState.signedIn) CloudActions(
+            download = { viewModel.download(listOf(it)); tell("Baixando “${it.title}”") },
+            removeDownload = { viewModel.removeDownload(it); tell("Download removido") },
+            upload = { viewModel.upload(listOf(it)); tell("Enviando “${it.title}” para a nuvem") },
+            delete = { viewModel.deleteFromCloud(it); tell("“${it.title}” saiu da nuvem") },
+            progress = { transfers[if (it.inCloud) it.cloudId else it.id] },
+        ) else null,
         isNoShuffle = { stats[it.id]?.noShuffle == true },
         toggleNoShuffle = { song ->
             val off = stats[song.id]?.noShuffle == true
@@ -234,7 +254,15 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                         onNoShuffle = {
                             viewModel.setNoShuffle(viewModel.selectedSongs(), true); viewModel.clearSelection()
                             tell("Não tocam mais no aleatório")
-                        })
+                        },
+                        onDownload = if (accountState.signedIn) ({
+                            val chosen = viewModel.selectedSongs().filter { it.inCloud && it.cloudFile == null }
+                            viewModel.download(chosen); viewModel.clearSelection(); tell("Baixando ${chosen.size} da nuvem")
+                        }) else null,
+                        onUpload = if (accountState.signedIn) ({
+                            val chosen = viewModel.selectedSongs().filter { !it.inCloud }
+                            viewModel.upload(chosen); viewModel.clearSelection(); tell("Enviando ${chosen.size} para a nuvem")
+                        }) else null)
                 } else if (home != null) {
                     HomeHeader(ui, current, viewModel.player, onSettings = { viewModel.open(Route.Settings) },
                         onOpenPlayer = { viewModel.show(Screen.Player) }, simple = useMode == UseMode.Simple)
@@ -267,10 +295,15 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             // In normal mode the tab button floats over the list (the lists leave room at their end).
             Column(Modifier.padding(padding)) {
                 if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                continueOffer?.takeIf { home != null }?.let { offer ->
+                    ContinueBanner(offer, onContinue = { viewModel.playHere(offer); tell("Continuando de ${offer.name}") },
+                        onDismiss = viewModel::dismissContinue)
+                }
                 when (route) {
                     is Route.Home -> when (route.tab) {
                         Tab.Songs -> SongsScreen(results, currentId, query, { viewModel.query.value = it }, actions, play,
-                            selection, viewModel::toggleSelected)
+                            selection, viewModel::toggleSelected,
+                            source = librarySource.takeIf { accountState.signedIn }, onSource = { viewModel.librarySource.value = it })
                         Tab.Albums -> AlbumsScreen(albums) { viewModel.open(Route.AlbumPage(it.key)) }
                         Tab.Artists -> ArtistsScreen(artists) { viewModel.open(Route.ArtistPage(it.name)) }
                         Tab.Genres -> GroupsScreen(genres, Icons.Rounded.Category) { viewModel.open(Route.GenrePage(it.name)) }
@@ -319,6 +352,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     is Route.SettingsOf -> when (route.page) {
                         SettingsPage.Tutorial -> Unit  // shown full screen above
                         SettingsPage.Report -> ReportPage(lastExit)
+                        SettingsPage.Account -> AccountPage(accountState, syncStatus, localNotInCloud.size, viewModel)
                         SettingsPage.Analyzer -> AnalyzerPage(analysis, analysisItems, analyzerCounts, viewModel::analyze,
                             viewModel::stopAnalysis, viewModel::accept, viewModel::undo, viewModel::undoAll, viewModel::acceptAll,
                             onSearch = { openFix(it.song.id) }, onIgnore = { viewModel.ignore(it); tell("Ignorada: não aparece mais") },
@@ -354,6 +388,7 @@ private fun Main(viewModel: MusicViewModel, version: String) {
                     viewModel.show(Screen.Library)
                 },
                 noShuffle = current?.let { stats[it.id]?.noShuffle } == true,
+                onDevices = if (accountState.signedIn) ({ showDevices = true }) else null,
                 onNoShuffle = {
                     current?.let { song ->
                         val off = stats[song.id]?.noShuffle == true
@@ -435,6 +470,13 @@ private fun Main(viewModel: MusicViewModel, version: String) {
             },
             onDismiss = { addingToPlaylist = null },
         )
+    }
+    if (showDevices) {
+        DevicesSheet(devices, playingHere = ui.isPlaying, onRefresh = viewModel::refreshDevices,
+            onPlayHere = { viewModel.playHere(it); tell("Continuando de ${it.name}") },
+            onPlayThere = { viewModel.playThere(it); tell("Tocando em ${it.name}") },
+            onCommand = { device, action -> viewModel.command(device, action) },
+            onDismiss = { showDevices = false })
     }
     deletingPlaylist?.let { playlist ->
         AlertDialog(

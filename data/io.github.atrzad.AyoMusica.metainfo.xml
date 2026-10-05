@@ -34,6 +34,12 @@
     <color type="primary" scheme_preference="dark">#18181c</color>
   </branding>
   <releases>
+    <release version="2.0.0" date="2026-10-05">
+      <description>
+        <p>Conta Google e a mesma biblioteca no computador e no celular: playlists, curtidas e letras sincronizadas,
+          suas músicas na nuvem (streaming ou download), continuar de onde parou em outro aparelho e controle remoto.</p>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-10-02">
       <description>
         <p>Temas baseados nos temas do kitty (Catppuccin, Gruvbox, Tokyo Night, Solarized, One Dark, Rosé Pine,

@@ -90,7 +90,7 @@ def _finish(source, result):
         pass
 
 
-def show_preferences(parent, controller):
+def show_preferences(parent, controller, open_account=False):
     store = controller.store
     dialog = Adw.PreferencesDialog(title="Preferências")
     page = Adw.PreferencesPage(title="Geral", icon_name="preferences-system-symbolic")
@@ -149,6 +149,12 @@ def show_preferences(parent, controller):
     dialog.add(sound_page(controller))
     dialog.add(metadata_page(controller))
     dialog.add(lyrics_page(controller))
+    if getattr(controller, "cloud", None) is not None:
+        from .cloud_ui import account_page
+        account = account_page(controller)
+        dialog.add(account)
+        if open_account:
+            dialog.set_visible_page(account)
     dialog.present(parent)
     return dialog
 

@@ -22,3 +22,17 @@ jobs:
         run: |
           desktop-file-validate data/io.github.atrzad.AyoMusica.desktop
           appstreamcli validate --no-net data/io.github.atrzad.AyoMusica.metainfo.xml
+
+  server:
+    # O servidor de sincronização (server/): conta, sincronização, nuvem e controle remoto.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install ffmpeg (test songs)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Run tests
+        working-directory: server
+        run: npm ci && npm test

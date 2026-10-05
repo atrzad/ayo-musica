@@ -17,6 +17,10 @@ data class Playlist(
     val description: String = "",
     /** A picture chosen for the playlist (a copy in the app's storage); null shows the first song's cover. */
     val coverFile: String? = null,
+    /** The same playlist on every device of the account (sync). */
+    val uuid: String = "",
+    /** Synced songs this device does not have (kept, in order, so they are not lost when it syncs back). */
+    val remoteKeys: List<String> = emptyList(),
 )
 
 /** Playlists kept in a small JSON file in the app's private storage. */
@@ -41,9 +45,33 @@ class Playlists(private val file: File) {
     }
 
     suspend fun create(name: String, songIds: List<Long> = emptyList()): Playlist {
-        val playlist = Playlist((state.value.maxOfOrNull { it.id } ?: 0) + 1, name.trim(), songIds.distinct())
+        val playlist = Playlist((state.value.maxOfOrNull { it.id } ?: 0) + 1, name.trim(), songIds.distinct(),
+            uuid = java.util.UUID.randomUUID().toString())
         save(state.value + playlist)
         return playlist
+    }
+
+    /** Playlists made before sync get their uuid. */
+    suspend fun ensureUuids() {
+        if (state.value.none { it.uuid.isBlank() }) return
+        save(state.value.map { if (it.uuid.isBlank()) it.copy(uuid = java.util.UUID.randomUUID().toString()) else it })
+    }
+
+    /** A playlist from another device: created or replaced here (keeping this device's local id). */
+    suspend fun putSynced(uuid: String, name: String, description: String, songIds: List<Long>, remoteKeys: List<String>,
+                          coverFile: String?) {
+        val existing = state.value.firstOrNull { it.uuid == uuid }
+        if (existing == null) {
+            save(state.value + Playlist((state.value.maxOfOrNull { it.id } ?: 0) + 1, name, songIds, description, coverFile, uuid,
+                remoteKeys))
+        } else {
+            update(existing.id) { it.copy(name = name, songIds = songIds, description = description, coverFile = coverFile,
+                remoteKeys = remoteKeys) }
+        }
+    }
+
+    suspend fun deleteSynced(uuid: String) {
+        state.value.firstOrNull { it.uuid == uuid }?.let { delete(it.id) }
     }
 
     suspend fun rename(id: Long, name: String) = update(id) { it.copy(name = name.trim()) }

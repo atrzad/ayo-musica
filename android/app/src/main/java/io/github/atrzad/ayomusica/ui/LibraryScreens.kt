@@ -76,10 +76,17 @@ fun PlayButtons(songs: List<Song>, onPlay: (List<Song>, Int, Boolean) -> Unit) {
 
 @Composable
 fun SongsScreen(songs: List<Song>, currentId: String?, query: String, onQuery: (String) -> Unit, actions: SongActions,
-                onPlay: (List<Song>, Int, Boolean) -> Unit, selection: Set<Long>? = null, onSelect: ((Song) -> Unit)? = null) {
+                onPlay: (List<Song>, Int, Boolean) -> Unit, selection: Set<Long>? = null, onSelect: ((Song) -> Unit)? = null,
+                source: io.github.atrzad.ayomusica.ui.LibrarySource? = null, onSource: (io.github.atrzad.ayomusica.ui.LibrarySource) -> Unit = {}) {
     LazyColumn(contentPadding = listPadding) {
         item {
             SearchField(query, onQuery)
+            // Like Spotify's filters: the cloud and this phone apart, or everything together.
+            if (source != null) Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                io.github.atrzad.ayomusica.ui.LibrarySource.entries.forEach { option ->
+                    androidx.compose.material3.FilterChip(source == option, { onSource(option) }, label = { Text(option.title) })
+                }
+            }
         }
         if (songs.isEmpty()) {
             item {

@@ -82,6 +82,17 @@ class LyricsRepository(private val folder: File, private val finder: LyricsFinde
         write(song, (read(song) ?: LyricsEntry()).copy(offsetMs = offsetMs))
     }
 
+    /** The lyrics the person chose or synced for this song (what sync shares), or null. */
+    fun chosen(song: Song): LyricsEntry? = read(song)?.takeIf { it.source in CHOSEN && (it.synced.isNotBlank() || it.plain.isNotBlank()) }
+
+    /** Lyrics chosen or synced on another device. */
+    fun putChosen(song: Song, entry: LyricsEntry) = write(song, entry.copy(checkedAt = System.currentTimeMillis()))
+
+    /** Another device dropped its choice: back to searching. */
+    fun dropChosen(song: Song) {
+        if (read(song)?.source in CHOSEN) write(song, LyricsEntry())
+    }
+
     /** Forget what was found automatically (choices and syncs made by the person stay). */
     suspend fun forget(song: Song) = withContext(Dispatchers.IO) {
         val entry = read(song) ?: return@withContext

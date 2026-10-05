@@ -165,6 +165,8 @@ class PlayerConnection(private val context: Context) {
 
     fun seekTo(ms: Long) = controller?.seekTo(ms.coerceAtLeast(0))
 
+    fun pause() = controller?.pause()
+
     fun setShuffle(on: Boolean) { controller?.shuffleModeEnabled = on }
 
     /** 0.5× to 2×; the pitch stays the same. */

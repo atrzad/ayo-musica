@@ -52,6 +52,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,7 +69,7 @@ sealed interface LyricsUi {
 }
 
 enum class SettingsPage(val title: String) {
-    Tutorial("Como usar"), Report("Relatório de erros"), Analyzer("Analisador de músicas"), Equalizer("Equalizador"), UseModes("Modo"), Themes("Temas"),
+    Account("Conta e nuvem"), Tutorial("Como usar"), Report("Relatório de erros"), Analyzer("Analisador de músicas"), Equalizer("Equalizador"), UseModes("Modo"), Themes("Temas"),
     HomeTabs("Página inicial"), LyricsSettings("Letras")
 }
 
@@ -134,7 +137,31 @@ data class AnalysisState(
     val accepting: Pair<Int, Int>? = null,
 )
 
+/** Which songs the library shows, like Spotify's filters: everything, this phone's, or the cloud's. */
+enum class LibrarySource(val title: String) { All("Tudo"), Local("Neste celular"), Cloud("Nuvem") }
+
+/** The account's sync: running, when it last worked, and what went wrong. */
+/** Another device of the account and what it plays (from the server). */
+data class RemoteDevice(
+    val id: String,
+    val name: String,
+    val platform: String,
+    val online: Boolean,
+    val updated: Long,
+    val title: String,
+    val artist: String,
+    val playing: Boolean,
+    val positionMs: Long,
+    val durationMs: Long,
+    val state: kotlinx.serialization.json.JsonObject?,
+)
+
+data class SyncStatus(val running: Boolean = false, val lastAt: Long = 0, val message: String = "", val error: String? = null)
+
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
+    init {
+        io.github.atrzad.ayomusica.sync.Account.init(application)
+    }
     private val library = MediaLibrary(application)
     private val lyricsRepository = LyricsRepository(application)
     private val playlistStore = Playlists(application)
@@ -144,10 +171,30 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val player = PlayerConnection(application)
 
     private val scanned = MutableStateFlow<List<Song>>(emptyList())
-    /** The library with the analyzer's corrections applied. */
+    val cloud = io.github.atrzad.ayomusica.sync.Cloud(application)
+    val account = io.github.atrzad.ayomusica.sync.Account.current
+    val librarySource = MutableStateFlow(LibrarySource.All)
+    val syncStatus = MutableStateFlow(SyncStatus())
+    /** The cloud's songs (played from this phone when downloaded). */
+    private val cloudRaw: StateFlow<List<Song>> = combine(cloud.tracks, cloud.downloaded, account) { tracks, saved, who ->
+        if (!who.signedIn) emptyList() else tracks.map { cloud.song(it, it.id in saved) }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Every song this phone can play — its own and the cloud's — with the corrections applied (for playing anything). */
     // Everything derived from the library runs off the main thread: thousands of songs must not freeze the screen.
-    val songs: StateFlow<List<Song>> = combine(scanned, overrides.all) { list, fixes ->
-        if (fixes.isEmpty()) list else list.map { song -> fixes[song.id]?.let { Overrides.apply(song, it) } ?: song }
+    private val allSongs: StateFlow<Pair<List<Song>, List<Song>>> = combine(scanned, cloudRaw, overrides.all) { local, remote, fixes ->
+        fun fixed(list: List<Song>) = if (fixes.isEmpty()) list else list.map { song -> fixes[song.id]?.let { Overrides.apply(song, it) } ?: song }
+        fixed(local) to fixed(remote)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList<Song>() to emptyList())
+    /** The library as shown: everything (a song on both sides once, this phone's copy), this phone's, or the cloud's. */
+    val songs: StateFlow<List<Song>> = combine(allSongs, librarySource) { (local, remote), source ->
+        when (source) {
+            LibrarySource.Local -> local
+            LibrarySource.Cloud -> remote
+            LibrarySource.All -> {
+                val here = local.mapTo(HashSet()) { io.github.atrzad.ayomusica.sync.SongKeys.name(io.github.atrzad.ayomusica.sync.SongKeys.of(it)) }
+                local + remote.filter { io.github.atrzad.ayomusica.sync.SongKeys.name(io.github.atrzad.ayomusica.sync.SongKeys.of(it)) !in here }
+            }
+        }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val loading = MutableStateFlow(false)
     val loaded = MutableStateFlow(false)
@@ -156,7 +203,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val screen = MutableStateFlow(Screen.Library)
     val lyrics = MutableStateFlow<LyricsUi>(LyricsUi.Idle)
     val playlists: StateFlow<List<Playlist>> = playlistStore.all
-    val stats: StateFlow<Map<Long, SongStats>> = statsStore.all
+    /** Other devices' plays (by song name), added to this phone's in "Mais tocadas" and "Tocadas recentemente". */
+    private val remotePlays = MutableStateFlow<Map<String, Triple<Int, Int, Long>>>(emptyMap())
+    val stats: StateFlow<Map<Long, SongStats>> = combine(statsStore.all, remotePlays, allSongs) { own, remote, (local, cloudSongs) ->
+        if (remote.isEmpty()) own else {
+            val merged = own.toMutableMap()
+            for (song in local + cloudSongs) {
+                val other = remote[io.github.atrzad.ayomusica.sync.SongKeys.name(io.github.atrzad.ayomusica.sync.SongKeys.of(song))] ?: continue
+                val mine = merged[song.id] ?: SongStats()
+                merged[song.id] = mine.copy(plays = mine.plays + other.first, skips = mine.skips + other.second,
+                    lastPlayed = maxOf(mine.lastPlayed, other.third))
+            }
+            merged
+        }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     val sleep: StateFlow<SleepTimer.Mode> = SleepTimer.mode
     val analysis = MutableStateFlow(AnalysisState())
     val metaSearch = MutableStateFlow(MetaSearchState())
@@ -186,14 +246,248 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val results: StateFlow<List<Song>> = combine(songs, query.debounce { if (it.isEmpty()) 0L else 180L }) { all, text ->
         Grouping.search(all, text)
     }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val byId: StateFlow<Map<Long, Song>> = derived(emptyMap()) { list -> list.associateBy { it.id } }
+    /** Every playable song by id (this phone's and the cloud's), whatever the library shows. */
+    val byId: StateFlow<Map<Long, Song>> = allSongs.map { (local, remote) -> (local + remote).associateBy { it.id } }
+        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     /** Sizes of the automatic lists (Curtidas, Mais tocadas...), counted in the background. */
-    val autoCounts: StateFlow<Map<AutoList, Int>> = combine(songs, statsStore.all) { list, stats ->
+    val autoCounts: StateFlow<Map<AutoList, Int>> = combine(songs, stats) { list, stats ->
         AutoList.entries.associateWith { it.songs(list, stats).size }
     }.conflate().flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     private val analysisStore = io.github.atrzad.ayomusica.analyzer.AnalysisStore(application)
     private val originals: StateFlow<Map<Long, Song>> = scanned.map { list -> list.associateBy { it.id } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    // ── account and sync ─────────────────────────────────────────────────
+    private val librarySync = io.github.atrzad.ayomusica.sync.LibrarySync(application.filesDir, playlistStore, statsStore,
+        lyricsRepository, overrides, analysisStore, prefs, localSongs = { scanned.value },
+        shownSongs = { byId.value }, cloudSongs = { cloudRaw.value })
+    private val syncEngine = io.github.atrzad.ayomusica.sync.SyncEngine(
+        java.io.File(application.filesDir, "sync/state.json"), librarySync.hooks,
+        device = { io.github.atrzad.ayomusica.sync.Account.deviceId },
+        transport = { since, changes ->
+            io.github.atrzad.ayomusica.sync.Api.post("/api/sync", kotlinx.serialization.json.buildJsonObject {
+                put("device", kotlinx.serialization.json.JsonPrimitive(io.github.atrzad.ayomusica.sync.Account.deviceId))
+                put("since", kotlinx.serialization.json.JsonPrimitive(since))
+                put("changes", kotlinx.serialization.json.JsonArray(changes))
+            })
+        })
+    private val syncLock = kotlinx.coroutines.sync.Mutex()
+
+    /** Sends what changed here and brings what changed elsewhere (cloud songs first, so playlists can use them). */
+    fun syncNow(quiet: Boolean = false) {
+        val who = account.value
+        if (!who.signedIn || syncLock.isLocked) return
+        viewModelScope.launch(Dispatchers.IO) {
+            syncLock.withLock {
+                // Only after the phone's library is read: otherwise everything would look deleted.
+                if (!loaded.value) return@withLock
+                syncStatus.update { it.copy(running = true, error = null, message = if (quiet) it.message else "Sincronizando…") }
+                try {
+                    if (!syncEngine.belongsTo(io.github.atrzad.ayomusica.sync.Account.server, who.email)) {
+                        syncEngine.reset(io.github.atrzad.ayomusica.sync.Account.server, who.email)
+                    }
+                    cloud.refresh()
+                    val result = syncEngine.sync()
+                    remotePlays.value = syncEngine.remotePlays()
+                    io.github.atrzad.ayomusica.util.AppLog.i("Sync", "enviou ${result.sent}, recebeu ${result.received}, guardou ${result.held}")
+                    syncStatus.value = SyncStatus(lastAt = System.currentTimeMillis(), message = "Sincronizado")
+                } catch (error: Exception) {
+                    io.github.atrzad.ayomusica.util.AppLog.w("Sync", "falhou", error)
+                    syncStatus.update { it.copy(running = false, error = error.message ?: "Sem conexão com o servidor.") }
+                }
+            }
+        }
+    }
+
+    /** "Entrar com o Google": Google's token goes to our server, which answers with its own session. */
+    suspend fun signIn(idToken: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val answer = io.github.atrzad.ayomusica.sync.Api.login(idToken)
+            val user = io.github.atrzad.ayomusica.sync.Api.objectOf(answer, "user")
+            io.github.atrzad.ayomusica.sync.Account.signIn(io.github.atrzad.ayomusica.sync.Api.string(answer, "token"),
+                user?.let { io.github.atrzad.ayomusica.sync.Api.string(it, "email") }.orEmpty(),
+                user?.let { io.github.atrzad.ayomusica.sync.Api.string(it, "name") }.orEmpty(),
+                user?.let { io.github.atrzad.ayomusica.sync.Api.string(it, "picture") }.orEmpty())
+            io.github.atrzad.ayomusica.util.AppLog.i("Conta", "entrou como ${io.github.atrzad.ayomusica.sync.Account.current.value.email}")
+            null
+        }.getOrElse { it.message ?: "Não deu para entrar." }
+    }
+
+    /** Debug builds: a session made on the server's PC (admin.js token) instead of Google. */
+    suspend fun signInWithSession(token: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val me = io.github.atrzad.ayomusica.sync.Api.get("/api/me", token = token.trim())
+            val user = io.github.atrzad.ayomusica.sync.Api.objectOf(me, "user")
+            io.github.atrzad.ayomusica.sync.Account.signIn(token.trim(), user?.let { io.github.atrzad.ayomusica.sync.Api.string(it, "email") }.orEmpty(),
+                user?.let { io.github.atrzad.ayomusica.sync.Api.string(it, "name") }.orEmpty(), "")
+            null
+        }.getOrElse { io.github.atrzad.ayomusica.sync.Account.signOut(); it.message ?: "Sessão inválida." }
+    }
+
+    /** The Web client id the server gives (Android asks Google for a token meant for it). */
+    suspend fun googleClientId(): String = withContext(Dispatchers.IO) {
+        runCatching { io.github.atrzad.ayomusica.sync.Api.string(io.github.atrzad.ayomusica.sync.Api.config(), "webClientId") }.getOrDefault("")
+    }
+
+    fun signOut() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { io.github.atrzad.ayomusica.sync.Api.post("/api/logout", kotlinx.serialization.json.JsonObject(emptyMap())) }
+            io.github.atrzad.ayomusica.sync.Account.signOut()
+            cloud.clear()
+            remotePlays.value = emptyMap()
+            syncStatus.value = SyncStatus()
+            librarySource.value = LibrarySource.All
+        }
+    }
+
+    fun setServer(url: String) = io.github.atrzad.ayomusica.sync.Account.setServer(url)
+
+    // ── cloud songs ──────────────────────────────────────────────────────
+    fun download(list: List<Song>) {
+        val tracks = cloud.tracks.value.associateBy { it.id }
+        viewModelScope.launch(Dispatchers.IO) {
+            for (song in list) tracks[song.cloudId]?.let { runCatching { cloud.download(it) }.onFailure { e ->
+                io.github.atrzad.ayomusica.util.AppLog.w("Nuvem", "baixar ${song.cloudId}", e) } }
+        }
+    }
+
+    fun removeDownload(song: Song) = cloud.removeDownload(song.cloudId)
+
+    /** Sends this phone's songs to the cloud (one at a time; the same file twice is skipped by the server). */
+    fun upload(list: List<Song>) {
+        val local = list.filter { !it.inCloud }
+        if (local.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            var done = 0
+            for (song in local) {
+                syncStatus.update { it.copy(message = "Enviando ${done + 1} de ${local.size} para a nuvem…") }
+                runCatching { cloud.upload(song) }.onFailure { e ->
+                    io.github.atrzad.ayomusica.util.AppLog.w("Nuvem", "enviar ${song.id}", e)
+                    syncStatus.update { it.copy(error = e.message) }
+                }
+                done++
+            }
+            syncStatus.update { it.copy(message = "$done enviadas para a nuvem") }
+            runCatching { cloud.refresh() }
+        }
+    }
+
+    // ── other devices: continue, play there, remote control ──────────────
+    val devices = MutableStateFlow<List<RemoteDevice>>(emptyList())
+    /** "Continuar de onde parou": another device's recent song, offered when this phone is not playing. */
+    val continueOffer = MutableStateFlow<RemoteDevice?>(null)
+    private var offerDismissed = ""
+
+    fun refreshDevices() {
+        if (!account.value.signedIn) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = runCatching { io.github.atrzad.ayomusica.sync.Api.get("/api/player/devices") }.getOrNull() ?: return@launch
+            val me = io.github.atrzad.ayomusica.sync.Account.deviceId
+            devices.value = list["devices"]?.let { it as? kotlinx.serialization.json.JsonArray }.orEmpty().mapNotNull { element ->
+                val obj = element as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                fun text(o: kotlinx.serialization.json.JsonObject?, k: String) = (o?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+                val id = text(obj, "device")
+                if (id == me) return@mapNotNull null
+                val state = obj["state"] as? kotlinx.serialization.json.JsonObject
+                val item = state?.get("item") as? kotlinx.serialization.json.JsonObject
+                RemoteDevice(id, text(obj, "name").ifBlank { "Outro aparelho" }, text(obj, "platform"), text(obj, "online") == "true",
+                    text(obj, "updated").toLongOrNull() ?: 0, text(item, "title"), text(item, "artist"), text(state, "playing") == "true",
+                    text(state, "positionMs").toLongOrNull() ?: 0, text(state, "durationMs").toLongOrNull() ?: 0, state)
+            }.sortedByDescending { it.updated }
+            val idle = !player.ui.value.isPlaying
+            continueOffer.value = devices.value.firstOrNull {
+                idle && it.state != null && it.title.isNotBlank() && System.currentTimeMillis() - it.updated < 12 * 3_600_000 &&
+                    "${it.id}:${it.updated}" != offerDismissed
+            }
+        }
+    }
+
+    fun dismissContinue() {
+        continueOffer.value?.let { offerDismissed = "${it.id}:${it.updated}" }
+        continueOffer.value = null
+    }
+
+    fun command(device: RemoteDevice, action: String, args: Map<String, Any> = emptyMap()) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                io.github.atrzad.ayomusica.sync.Api.post("/api/player/command", kotlinx.serialization.json.buildJsonObject {
+                    put("target", kotlinx.serialization.json.JsonPrimitive(device.id))
+                    put("device", kotlinx.serialization.json.JsonPrimitive(io.github.atrzad.ayomusica.sync.Account.deviceId))
+                    put("action", kotlinx.serialization.json.JsonPrimitive(action))
+                    put("args", kotlinx.serialization.json.JsonObject(args.mapValues { (_, v) ->
+                        when (v) { is Number -> kotlinx.serialization.json.JsonPrimitive(v); is Boolean -> kotlinx.serialization.json.JsonPrimitive(v)
+                            is kotlinx.serialization.json.JsonElement -> v; else -> kotlinx.serialization.json.JsonPrimitive(v.toString()) }
+                    }))
+                })
+            }.onFailure { e -> syncStatus.update { it.copy(error = e.message) } }
+            kotlinx.coroutines.delay(1200)
+            refreshDevices()
+        }
+    }
+
+    /** Continue here what the other device was playing (same queue and moment); the other one pauses. */
+    fun playHere(device: RemoteDevice) {
+        val state = device.state ?: return
+        val items = (state["queue"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { it as? kotlinx.serialization.json.JsonObject }
+        if (items.isEmpty()) return
+        val (local, remote) = allSongs.value
+        val matcher = io.github.atrzad.ayomusica.sync.Matcher(local.map { it to io.github.atrzad.ayomusica.sync.SongKeys.of(it) } +
+            remote.map { it to io.github.atrzad.ayomusica.sync.SongKeys.of(it) })
+        val byCloud = remote.associateBy { it.cloudId }
+        val list = items.mapNotNull { item ->
+            fun text(k: String) = (item[k] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+            matcher.find(text("key")) ?: byCloud[text("cloudId").toLongOrNull() ?: 0]
+        }
+        if (list.isEmpty()) {
+            syncStatus.update { it.copy(error = "As músicas de ${device.name} não estão neste celular nem na nuvem.") }
+            return
+        }
+        val index = ((state["index"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0).coerceIn(0, list.lastIndex)
+        val position = device.positionMs + if (device.playing) System.currentTimeMillis() - device.updated else 0
+        play(list, index, false)
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(600)
+            player.seekTo(position.coerceAtLeast(0))
+        }
+        command(device, "pause")
+        continueOffer.value = null
+    }
+
+    /** Send what plays here to another device (it continues from this moment); this phone pauses. */
+    fun playThere(device: RemoteDevice) {
+        val ui = player.ui.value
+        val queue = player.queue().take(300).map { it.item }
+        if (queue.isEmpty()) return
+        val index = queue.indexOfFirst { it.mediaId == ui.current?.mediaId }.coerceAtLeast(0)
+        val items = kotlinx.serialization.json.JsonArray(queue.map { media ->
+            val meta = media.mediaMetadata
+            val id = media.mediaId.toLongOrNull() ?: 0
+            kotlinx.serialization.json.buildJsonObject {
+                put("key", kotlinx.serialization.json.JsonPrimitive(io.github.atrzad.ayomusica.sync.SongKeys.of(
+                    meta.artist?.toString().orEmpty(), meta.title?.toString().orEmpty(), meta.durationMs ?: 0)))
+                put("cloudId", kotlinx.serialization.json.JsonPrimitive(if (id < 0) -id else 0))
+                put("title", kotlinx.serialization.json.JsonPrimitive(meta.title?.toString().orEmpty()))
+                put("artist", kotlinx.serialization.json.JsonPrimitive(meta.artist?.toString().orEmpty()))
+                put("durationMs", kotlinx.serialization.json.JsonPrimitive(meta.durationMs ?: 0))
+            }
+        })
+        command(device, "playQueue", mapOf("items" to items, "index" to index, "positionMs" to player.positionMs))
+        player.pause()
+    }
+
+    /** This phone's songs the cloud does not have yet (by artist and title). */
+    val localNotInCloud: StateFlow<List<Song>> = allSongs.map { (local, remote) ->
+        val there = remote.mapTo(HashSet()) { io.github.atrzad.ayomusica.sync.SongKeys.name(io.github.atrzad.ayomusica.sync.SongKeys.of(it)) }
+        local.filter { io.github.atrzad.ayomusica.sync.SongKeys.name(io.github.atrzad.ayomusica.sync.SongKeys.of(it)) !in there }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun uploadMissing() = upload(localNotInCloud.value)
+
+    fun deleteFromCloud(song: Song) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { cloud.delete(song.cloudId); cloud.refresh() }.onFailure { e -> syncStatus.update { it.copy(error = e.message) } }
+        }
+    }
 
     /**
      * The analyzer's lists, worked out from what was saved: its results, the ignored songs and the corrections. Whether
@@ -225,6 +519,22 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private var pendingExternal: Uri? = null
 
     init {
+        // Sync: when signed in and the library is read, 20 s after anything synced changes, and every 5 minutes.
+        viewModelScope.launch {
+            combine(account.map { it.signedIn to it.email }.distinctUntilChanged(), loaded) { who, ready -> who.first && ready }
+                .distinctUntilChanged().collect { if (it) syncNow() }
+        }
+        viewModelScope.launch {
+            @OptIn(kotlinx.coroutines.FlowPreview::class)
+            merge(playlistStore.all.map { 1 }, statsStore.all.map { 2 }, overrides.all.map { 3 }, analysisStore.data.map { 4 },
+                prefs.theme.map { 5 }, prefs.tabs.map { 6 }).drop(6).debounce(20_000).collect { syncNow(quiet = true) }
+        }
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(5 * 60_000)
+                syncNow(quiet = true)
+            }
+        }
         viewModelScope.launch {
             player.connect()
             pendingExternal?.let { openExternal(it) }

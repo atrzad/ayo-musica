@@ -21,9 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -91,6 +94,16 @@ fun Cover(uri: Uri?, size: Dp, corner: Dp = 8.dp) {
 }
 
 /** What a song's menu can do; each screen passes what makes sense there. */
+/** What can be done with cloud songs (only when signed in). */
+class CloudActions(
+    val download: (Song) -> Unit,
+    val removeDownload: (Song) -> Unit,
+    val upload: (Song) -> Unit,
+    val delete: (Song) -> Unit,
+    /** Download or upload in progress (0..1), or null. */
+    val progress: (Song) -> Float?,
+)
+
 class SongActions(
     val playNext: (Song) -> Unit,
     val enqueue: (Song) -> Unit,
@@ -104,6 +117,7 @@ class SongActions(
     val isNoShuffle: (Song) -> Boolean = { false },
     /** Puts the song on the shuffle blacklist, or takes it off. */
     val toggleNoShuffle: ((Song) -> Unit)? = null,
+    val cloud: CloudActions? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -144,6 +158,15 @@ fun SongRow(
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        // Where the song is: the cloud (streamed), downloaded from it, or going up/down right now.
+        val transfer = actions.cloud?.progress?.invoke(song)
+        when {
+            transfer != null -> CircularProgressIndicator(progress = { transfer }, Modifier.padding(start = 6.dp).size(16.dp), strokeWidth = 2.dp)
+            song.inCloud && song.cloudFile != null -> Icon(Icons.Rounded.DownloadDone, "Baixada", Modifier.padding(start = 6.dp).size(16.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            song.inCloud -> Icon(Icons.Rounded.Cloud, "Na nuvem", Modifier.padding(start = 6.dp).size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(durationText(song.durationMs), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 8.dp, end = if (selected != null) 16.dp else 0.dp))
@@ -167,6 +190,17 @@ fun SongRow(
                 actions.toggleNoShuffle?.let { toggle ->
                     DropdownMenuItem(text = { Text(if (actions.isNoShuffle(song)) "Voltar a tocar no aleatório" else "Não tocar no aleatório") },
                         onClick = { menu = false; toggle(song) })
+                }
+                actions.cloud?.let { cloud ->
+                    HorizontalDivider()
+                    if (song.inCloud) {
+                        if (song.cloudFile == null) DropdownMenuItem(text = { Text("Baixar para ouvir sem internet") },
+                            onClick = { menu = false; cloud.download(song) })
+                        else DropdownMenuItem(text = { Text("Remover download") }, onClick = { menu = false; cloud.removeDownload(song) })
+                        DropdownMenuItem(text = { Text("Tirar da nuvem") }, onClick = { menu = false; cloud.delete(song) })
+                    } else {
+                        DropdownMenuItem(text = { Text("Enviar para a nuvem") }, onClick = { menu = false; cloud.upload(song) })
+                    }
                 }
                 actions.fixInfo?.let { fix ->
                     DropdownMenuItem(text = { Text("Corrigir informações…") }, onClick = { menu = false; fix(song) })

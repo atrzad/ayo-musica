@@ -145,6 +145,50 @@ class MusicDB:
             self.db.execute("DELETE FROM playlist_items WHERE playlist_id=?", (playlist_id,))
             self.db.execute("DELETE FROM playlists WHERE id=?", (playlist_id,))
 
+    # ── account sync ───────────────────────────────────────────────────────
+    def sync_playlists(self):
+        """Manual playlists with what sync needs (each gets its uuid the first time)."""
+        import uuid as uuidlib
+        with self.db:
+            for row in self.db.execute("SELECT id FROM playlists WHERE kind='manual' AND uuid=''").fetchall():
+                self.db.execute("UPDATE playlists SET uuid=? WHERE id=?", (str(uuidlib.uuid4()), row["id"]))
+        return [dict(row, paths=self.playlist_paths(row["id"])) for row in self.db.execute(
+            "SELECT id, uuid, name, description, remote_keys FROM playlists WHERE kind='manual' ORDER BY id")]
+
+    def put_synced_playlist(self, uuid, name, description, paths, remote_keys):
+        jsonlib = json
+        row = self.db.execute("SELECT id FROM playlists WHERE uuid=?", (uuid,)).fetchone()
+        stamp = now()
+        with self.db:
+            if row is None:
+                cursor = self.db.execute(
+                    "INSERT INTO playlists(name, kind, rules, created, updated, uuid, description, remote_keys) "
+                    "VALUES(?, 'manual', '', ?, ?, ?, ?, ?)",
+                    (self._unique_name(name), stamp, stamp, uuid, description, jsonlib.dumps(remote_keys)))
+                playlist_id = cursor.lastrowid
+            else:
+                playlist_id = row["id"]
+                self.db.execute("UPDATE playlists SET name=?, description=?, remote_keys=?, updated=? WHERE id=?",
+                                (self._unique_name(name, ignore=playlist_id), description, jsonlib.dumps(remote_keys), stamp,
+                                 playlist_id))
+            self._write_items(playlist_id, paths)
+        return playlist_id
+
+    def delete_synced_playlist(self, uuid):
+        row = self.db.execute("SELECT id FROM playlists WHERE uuid=?", (uuid,)).fetchone()
+        if row is not None:
+            self.delete_playlist(row["id"])
+
+    def sync_stats(self):
+        return [dict(row) for row in self.db.execute(
+            "SELECT path, plays, skips, last_played, favorite FROM music_stats WHERE plays > 0 OR skips > 0 OR favorite = 1")]
+
+    def chosen_lyrics(self, sources):
+        marks = ",".join("?" * len(sources))
+        return [dict(row) for row in self.db.execute(
+            f"SELECT path, source, synced, text, offset_ms FROM lyrics_cache WHERE source IN ({marks}) AND text != ''",
+            tuple(sources))]
+
     def playlist_paths(self, playlist_id):
         return [row[0] for row in self.db.execute(
             "SELECT path FROM playlist_items WHERE playlist_id=? ORDER BY position", (playlist_id,))]

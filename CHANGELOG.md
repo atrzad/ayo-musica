@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.0 — Conta Google, nuvem e aparelhos conectados (Android e desktop)
+
+Como no Spotify, a mesma biblioteca em todos os aparelhos. O servidor fica no seu PC (`server/`, publicado pelo
+Tailscale); veja `server/README.md`.
+
+- Entrar com o Google (Android: Configurações → Conta e nuvem; desktop: Menu → Conta e nuvem).
+- Sincronização: playlists (com imagem e descrição), curtidas, "fora do aleatório", contagens de reprodução (cada
+  aparelho as suas, somadas em "Mais tocadas"), letras escolhidas ou sincronizadas, correções do Analisador, músicas
+  ignoradas e preferências. A mesma música é reconhecida em cada aparelho por artista, título e duração; o que se
+  refere a uma música que o aparelho não tem fica guardado até ela aparecer.
+- Nuvem: a pasta de músicas do PC (indexada no lugar, sem copiar) e o que os aparelhos enviarem. Filtros Tudo · Neste
+  aparelho · Nuvem; tocar por streaming; baixar para ouvir sem internet; enviar músicas; tirar da nuvem. Playlists
+  feitas no PC tocam no celular pela nuvem.
+- Aparelhos (como o Spotify Connect): "Continuar de <aparelho>" ao abrir, "Continuar aqui", "Tocar lá" e controle
+  remoto (tocar/pausar, anterior, próxima).
+- A partir desta versão os dois apps têm o mesmo número de versão.
+
 ## 1.0.0 — Relatório de erros e sincronização pela voz estável (Android)
 
 A partir daqui: funcionalidade nova sobe a versão inteira (2.0.0…), correção sobe 0.1 (1.1.0…).

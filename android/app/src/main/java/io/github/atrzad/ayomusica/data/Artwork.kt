@@ -27,6 +27,8 @@ object Artwork {
         val bitmap = runCatching {
             if (uri.scheme == "file") {  // official cover saved by the analyzer
                 uri.path?.let { java.io.File(it).readBytes() }?.let { decode(it, size) }
+            } else if (uri.scheme == "https" || uri.scheme == "http") {  // a cloud song's cover
+                cloudCover(context, uri.toString())?.let { decode(it, size) }
             } else if (Build.VERSION.SDK_INT >= 29) {
                 context.contentResolver.loadThumbnail(uri, Size(size, size), null)
             } else {
@@ -42,6 +44,17 @@ object Artwork {
         }.getOrNull()
         if (bitmap == null) synchronized(missing) { missing += key } else cache.put(key, bitmap)
         return bitmap
+    }
+
+    /** The server's picture, kept on disk too (so covers show offline after the first time). */
+    private fun cloudCover(context: Context, url: String): ByteArray? {
+        val name = java.security.MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+        val file = java.io.File(context.cacheDir, "cloud-covers/$name")
+        if (file.exists()) return file.readBytes()
+        if (!io.github.atrzad.ayomusica.sync.Account.owns(url)) return null
+        val ok = runCatching { io.github.atrzad.ayomusica.sync.Api.download(url.removePrefix(io.github.atrzad.ayomusica.sync.Account.server), file) }
+            .getOrDefault(false)
+        return if (ok) file.readBytes() else null
     }
 
     fun decode(data: ByteArray, size: Int): Bitmap? {

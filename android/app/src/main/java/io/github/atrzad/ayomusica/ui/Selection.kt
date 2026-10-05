@@ -58,6 +58,8 @@ fun SelectionBar(
     onEnqueue: () -> Unit,
     onLike: () -> Unit,
     onNoShuffle: () -> Unit,
+    onDownload: (() -> Unit)? = null,
+    onUpload: (() -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).statusBarsPadding()) {
@@ -82,6 +84,12 @@ fun SelectionBar(
                     DropdownMenuItem(text = { Text("Curtir") }, enabled = count > 0, onClick = { menu = false; onLike() })
                     DropdownMenuItem(text = { Text("Não tocar no aleatório") }, enabled = count > 0,
                         onClick = { menu = false; onNoShuffle() })
+                    onDownload?.let { action ->
+                        DropdownMenuItem(text = { Text("Baixar da nuvem") }, enabled = count > 0, onClick = { menu = false; action() })
+                    }
+                    onUpload?.let { action ->
+                        DropdownMenuItem(text = { Text("Enviar para a nuvem") }, enabled = count > 0, onClick = { menu = false; action() })
+                    }
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text("Selecionar todas") }, onClick = { menu = false; onSelectAll() })
                     DropdownMenuItem(text = { Text("Limpar seleção") }, onClick = { menu = false; onClose() })
