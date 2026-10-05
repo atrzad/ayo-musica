@@ -51,3 +51,4 @@ modules:
           - .flatpak-builder
           - .git
           - android
+          - server  # the sync server runs on its own (systemd), not inside the app
