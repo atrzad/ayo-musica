@@ -21,9 +21,20 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
             .setArtworkUri(artUri)  // the official cover, or the file's own (ArtworkBitmapLoader)
             .setIsPlayable(true)
             .setIsBrowsable(false)
+            // How the other devices know this song (its tags, not the Analyzer's corrections): continue/play there.
+            .setExtras(android.os.Bundle().apply {
+                putString(SYNC_KEY, syncKey.ifBlank { io.github.atrzad.ayomusica.sync.SongKeys.of(this@toMediaItem) })
+            })
             .build(),
     )
     .build()
+
+const val SYNC_KEY = "ayo.syncKey"
+
+/** The song key a queued item travels with (see [SYNC_KEY]); computed from what is shown for older items. */
+fun MediaItem.syncKey(): String = mediaMetadata.extras?.getString(SYNC_KEY)
+    ?: io.github.atrzad.ayomusica.sync.SongKeys.of(mediaMetadata.artist?.toString().orEmpty(),
+        mediaMetadata.title?.toString().orEmpty(), mediaMetadata.durationMs ?: 0)
 
 /** A file opened from another app (not in the library). */
 fun externalMediaItem(uri: Uri, name: String): MediaItem = MediaItem.Builder()

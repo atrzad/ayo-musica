@@ -26,6 +26,7 @@ class CloudLibrary:
                 self.cache = json.load(handle)
         except (OSError, ValueError):
             self.cache = {"rev": 0, "server": "", "tracks": {}}
+        self._index()
         self.cover_keys_file = os.path.join(folder, "cover-keys.json")
         try:
             with open(self.cover_keys_file, encoding="utf-8") as handle:
@@ -36,6 +37,23 @@ class CloudLibrary:
     @property
     def tracks(self):
         return list(self.cache["tracks"].values())
+
+    def _index(self):
+        """What the window asks many times a second: a track by its address, and which ones are downloaded
+        (kept in memory: looking through 1500 tracks and the disk each time froze the window)."""
+        self.saved = {}
+        for name in os.listdir(self.downloads):
+            stem, _dot, _ext = name.partition(".")
+            if stem.isdigit() and not name.endswith(".part"):
+                self.saved[int(stem)] = os.path.join(self.downloads, name)
+        self.by_path = {}
+        for track in self.cache["tracks"].values():
+            self.by_path[self.audio_url(track["id"])] = track
+            if track["id"] in self.saved:
+                self.by_path[self.saved[track["id"]]] = track
+
+    def track_at(self, path):
+        return self.by_path.get(str(path))
 
     def refresh(self):
         server = self.api.account.server
@@ -54,6 +72,7 @@ class CloudLibrary:
                 break
         with self.lock:
             self.cache = {"rev": rev, "server": server, "tracks": tracks}
+            self._index()
             temp = f"{self.cache_file}.tmp"
             with open(temp, "w", encoding="utf-8") as handle:
                 json.dump(self.cache, handle, ensure_ascii=False)
@@ -61,6 +80,7 @@ class CloudLibrary:
 
     def clear(self):
         self.cache = {"rev": 0, "server": "", "tracks": {}}
+        self._index()
         try:
             os.remove(self.cache_file)
         except OSError:
@@ -70,11 +90,7 @@ class CloudLibrary:
         return f"{self.api.account.server}/api/tracks/{track_id}/audio"
 
     def downloaded(self, track_id):
-        prefix = f"{track_id}."
-        for name in os.listdir(self.downloads):
-            if name.startswith(prefix) and not name.endswith(".part"):
-                return os.path.join(self.downloads, name)
-        return None
+        return self.saved.get(int(track_id))
 
     def _album(self, track):
         """One picture per album (shared by its tracks); a track without an album has its own."""
@@ -139,15 +155,21 @@ class CloudLibrary:
         target = os.path.join(self.downloads, f"{track['id']}.{ext}")
         self.transfers[track["id"]] = 0.0
         try:
-            return self.api.download(f"/api/tracks/{track['id']}/audio", target,
-                                     lambda got, total: self.transfers.__setitem__(track["id"], got / total if total else 0))
+            ok = self.api.download(f"/api/tracks/{track['id']}/audio", target,
+                                   lambda got, total: self.transfers.__setitem__(track["id"], got / total if total else 0))
+            if ok:
+                self.saved[int(track["id"])] = target
+                self.by_path[target] = track
+            return ok
         finally:
             self.transfers.pop(track["id"], None)
 
     def remove_download(self, track_id):
-        path = self.downloaded(track_id)
+        path = self.saved.pop(int(track_id), None)
         if path:
-            os.remove(path)
+            self.by_path.pop(path, None)
+            if os.path.exists(path):
+                os.remove(path)
 
     def upload(self, path):
         """Sends a file of this computer (skipped when the same file is already in the cloud)."""

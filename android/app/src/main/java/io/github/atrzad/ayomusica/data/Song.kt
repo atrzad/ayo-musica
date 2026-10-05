@@ -34,6 +34,11 @@ data class Song(
     val cloudFile: String? = null,
     /** The cloud song has a cover picture on the server. */
     val cloudCover: Boolean = false,
+    /**
+     * Which song this is for the other devices ("artist|title|seconds" of the file's own tags, or the cloud's): stays
+     * the same when the Analyzer corrects what is shown, since the other devices know the song by its tags.
+     */
+    val syncKey: String = "",
 ) {
     val inCloud: Boolean get() = cloudId > 0
     val uri: Uri get() = when {

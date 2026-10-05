@@ -6,6 +6,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import io.github.atrzad.ayomusica.data.MediaLibrary
 import io.github.atrzad.ayomusica.data.Song
+import io.github.atrzad.ayomusica.playback.syncKey
 import io.github.atrzad.ayomusica.playback.toMediaItem
 import io.github.atrzad.ayomusica.util.AppLog
 import kotlinx.coroutines.CoroutineScope
@@ -34,7 +35,7 @@ import kotlinx.serialization.json.put
 class RemoteLink(private val context: Context, private val player: Player) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var publishJob: Job? = null
-    private var library: Pair<Long, List<Song>>? = null
+    @Volatile private var library: Pair<Long, Matcher>? = null
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
@@ -46,6 +47,8 @@ class RemoteLink(private val context: Context, private val player: Player) {
 
     fun start() {
         player.addListener(listener)
+        // Read the phone's songs ahead, so "tocar aqui" from another device starts right away.
+        scope.launch(Dispatchers.IO) { if (Account.current.value.signedIn) matcher() }
         scope.launch { listen() }
         scope.launch {
             while (isActive) {  // while playing, the position stays fresh for "continuar"
@@ -103,7 +106,7 @@ class RemoteLink(private val context: Context, private val player: Player) {
         val meta = media.mediaMetadata
         val id = media.mediaId.toLongOrNull() ?: 0
         return buildJsonObject {
-            put("key", SongKeys.of(meta.artist?.toString().orEmpty(), meta.title?.toString().orEmpty(), meta.durationMs ?: 0))
+            put("key", media.syncKey())
             put("cloudId", if (id < 0) -id else 0)
             put("title", meta.title?.toString().orEmpty())
             put("artist", meta.artist?.toString().orEmpty())
@@ -159,8 +162,7 @@ class RemoteLink(private val context: Context, private val player: Player) {
     private suspend fun playQueue(args: JsonObject) {
         val items = args["items"]?.jsonArray.orEmpty().map { it.jsonObject }
         if (items.isEmpty()) return
-        val songs = withContext(Dispatchers.IO) { localSongs() }
-        val matcher = Matcher(songs.map { it to SongKeys.of(it) })
+        val matcher = withContext(Dispatchers.IO) { matcher() }
         val media = items.map { item ->
             val key = (item["key"] as? JsonPrimitive)?.content.orEmpty()
             matcher.find(key)?.toMediaItem() ?: cloudItem(item)
@@ -184,11 +186,12 @@ class RemoteLink(private val context: Context, private val player: Player) {
             .build()
     }
 
-    /** The phone's songs, read again at most every 10 minutes. */
-    private fun localSongs(): List<Song> {
-        library?.takeIf { System.currentTimeMillis() - it.first < 600_000 }?.let { return it.second }
+    /** The phone's songs by key (their own tags, as the other devices know them), read again every 30 minutes. */
+    @Synchronized private fun matcher(): Matcher {
+        library?.takeIf { System.currentTimeMillis() - it.first < 30 * 60_000 }?.let { return it.second }
         val songs = runCatching { kotlinx.coroutines.runBlocking { MediaLibrary(context).load() } }.getOrDefault(emptyList())
-        library = System.currentTimeMillis() to songs
-        return songs
+        val matcher = Matcher(songs.map { it to SongKeys.of(it) })
+        library = System.currentTimeMillis() to matcher
+        return matcher
     }
 }

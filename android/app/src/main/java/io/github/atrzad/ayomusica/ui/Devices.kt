@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Computer
@@ -60,8 +61,11 @@ fun DevicesSheet(
             delay(3_000)
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 16.dp).navigationBarsPadding(),
+    // Opened all the way (half open hid the buttons below), scrolling when there are many devices.
+    ModalBottomSheet(onDismissRequest = onDismiss,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState())
+            .padding(horizontal = 20.dp).padding(bottom = 16.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Dispositivos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (devices.isEmpty()) {
@@ -94,7 +98,7 @@ fun DevicesSheet(
                         IconButton(onClick = { onCommand(device, "previous") }) { Icon(Icons.Rounded.SkipPrevious, "Anterior lá") }
                         IconButton(onClick = { onCommand(device, "toggle") }) {
                             Icon(if (device.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                if (device.playing) "Pausar lá" else "Tocar lá")
+                                if (device.playing) "Pausar lá" else "Retomar lá")
                         }
                         IconButton(onClick = { onCommand(device, "next") }) { Icon(Icons.Rounded.SkipNext, "Próxima lá") }
                     }

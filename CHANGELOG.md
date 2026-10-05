@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.0 — Troca entre aparelhos sem travar
+
+- Desktop: a janela travava a cada play, pausa ou comando do controle remoto (para saber se uma música era da nuvem,
+  percorria as 1.500 faixas e lia a pasta de downloads a cada vez). Agora isso fica num índice em memória.
+- As músicas corrigidas pelo Analisador no celular viajam com a identidade das tags do arquivo: "Tocar lá" e
+  "Continuar aqui" acham a mesma música no computador (antes ficavam sem fazer nada).
+- "Tocar lá" com a biblioteca inteira na fila mandava as 300 primeiras músicas, não as da vez: o outro aparelho
+  começava na música errada.
+- O celular deixa a biblioteca pronta para receber uma fila de outro aparelho: começa a tocar em cerca de 1 segundo.
+- Dispositivos abre por inteiro (os botões Continuar aqui e Tocar lá ficavam escondidos com a janela pela metade).
+- Desktop: aviso quando as músicas do outro aparelho não estão neste computador nem na nuvem.
+
 ## 2.0.0 — Conta Google, nuvem e aparelhos conectados (Android e desktop)
 
 Como no Spotify, a mesma biblioteca em todos os aparelhos. O servidor fica no seu PC (`server/`, publicado pelo

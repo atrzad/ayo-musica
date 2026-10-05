@@ -113,10 +113,7 @@ class CloudService:
         return self.account.owns(path) or str(path).startswith(self.library.downloads)
 
     def track_of(self, path):
-        for track in self.library.tracks:
-            if path in (self.library.audio_url(track["id"]), self.library.downloaded(track["id"])):
-                return track
-        return None
+        return self.library.track_at(path)
 
     def http_headers(self, uri):
         """For the player: cloud songs stream with the session."""
@@ -345,6 +342,7 @@ class CloudService:
             elif item.get("cloudId"):
                 chosen.append(self.library.downloaded(item["cloudId"]) or self.library.audio_url(item["cloudId"]))
         if not chosen:
+            self.page.notify("As músicas do outro aparelho não estão neste computador nem na nuvem.")
             return False
         index = max(0, min(index, len(chosen) - 1))
         self.page.play_paths(chosen, index)

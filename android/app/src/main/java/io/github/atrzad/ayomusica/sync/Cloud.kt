@@ -99,6 +99,7 @@ class Cloud(private val context: Context) {
         disc = track.disc, year = track.year, dateAdded = track.added / 1000, relativePath = "Nuvem",
         displayName = track.title, genre = track.genre, cloudId = track.id,
         cloudFile = if (downloaded) downloadedFile(track.id)?.absolutePath else null, cloudCover = track.cover,
+        syncKey = track.songKey,
     )
 
     fun download(track: CloudTrack): Boolean {

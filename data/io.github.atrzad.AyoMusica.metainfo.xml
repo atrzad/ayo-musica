@@ -34,6 +34,12 @@
     <color type="primary" scheme_preference="dark">#18181c</color>
   </branding>
   <releases>
+    <release version="2.1.0" date="2026-10-05">
+      <description>
+        <p>A troca entre aparelhos e o controle remoto não travam mais a janela, e as músicas corrigidas no celular são
+          reconhecidas no computador.</p>
+      </description>
+    </release>
     <release version="2.0.0" date="2026-10-05">
       <description>
         <p>Conta Google e a mesma biblioteca no computador e no celular: playlists, curtidas e letras sincronizadas,
